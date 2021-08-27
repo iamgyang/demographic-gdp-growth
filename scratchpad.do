@@ -116,7 +116,22 @@ replace war = 1 if _m == 3
 
 // to do
 // go through each dataset to see where it ends
+
+// extra: 2007
+
+// inter: 2010
+
+// intra: 2014
+
+//  -9 = year unknown
+//  -7 = ongoing
+//  -8 = not applicable
+
+// correllates of war: 
+
 // replace -8 / -9 with the END or unknown (.)
+
+
 // remove the missing fillin
 // add checks at the end
 
