@@ -2,9 +2,11 @@
 // https://www.qogdata.pol.gu.se/search/
 
 // Macros -------------------------------------------------------------------
+clear all
+
 foreach user in "`c(username)'" {
 	global root "C:/Users/`user'/Dropbox/CGD/Projects/dem_neg_labor"
-	global input "$root/input/raw"
+	global input "$root/input"
 	global output "$root/output"
 	global paper "$root/paper"
 }
@@ -16,9 +18,26 @@ clear all
 set more off 
 cls
 
-// --------------------------------------------------------------------------
+// Define programs -----------------------------------------------------------
 
-// UN population estimates -------------------------------------------
+program drop _all
+program check_dup_id
+	args id_vars
+	preserve
+	keep `id_vars'
+	sort `id_vars'
+    quietly by `id_vars':  gen dup = cond(_N==1,0,_n)
+	assert dup == 0
+	restore
+	end
+	
+program naomit
+	foreach var of varlist _all {
+		drop if missing(`var')
+	}
+	end
+
+// UN population estimates ---------------------------------------------------
 
 import delimited "un_WPP2019_PopulationByAgeSex_Medium.csv", clear
 keep if variant == "Medium"
@@ -309,29 +328,20 @@ if ("$check" == "yes") {
 drop country
 rename (poptotal time) (pop_worker year)
 
-save un_pop_estimates_cleaned.dta, replace
+save "un_pop_estimates_cleaned.dta", replace
 
-
-// PWT GDP (growth rates) ------------------------------------------
-
-use pwt100.dta, clear
+// PWT GDP (growth rates) -----------------------------------------------------
+{
+use "pwt100.dta", clear
 keep rgdpna countrycode year
 drop if rgdpna == .
-rename (rgdpna countrycode) (rgdp_pwt iso3c)
-save pwt_cleaned.dta, replace
+rename (rgdpna countrycode) (rgdp_pwt iso3c)	
+}
+save "pwt_cleaned.dta", replace
 
-// Income levels -------------------------------------------------
-
-import excel world_bank_classes.xlsx, sheet("List of economies") firstrow clear
-keep Code Incomegroup
-rename (Code Incomegroup) (iso3c income)
-drop if income == ""
-save income_cleaned.dta, replace
-
-// Gov't revenue and deficit levels ------------------------------
+// Gov't revenue and deficit levels -----------------------------------------
 // https://stats.oecd.org/Index.aspx?DataSetCode=RS_AFR
-program drop _all
-
+{
 program clean_oecd
 	args indicator_ measure_ tempfilename_ variable_
 	keep if indicator == "`indicator_'"
@@ -340,29 +350,19 @@ program clean_oecd
 	rename (location time value) (iso3c year `variable_')
 	save "`tempfilename_'", replace
 	end
-	
-program check_dup_id
-	args id_vars
-	preserve
-	keep `id_vars'
-	sort `id_vars'
-    quietly by `id_vars':  gen dup = cond(_N==1,0,_n)
-	assert dup == 0
-	restore
-	end
-	
+
 // revenue
-import delimited oecd_DP_LIVE_11082021203447392.csv, encoding(UTF-8) clear 
+import delimited "oecd_DP_LIVE_11082021203447392.csv", encoding(UTF-8) clear 
 clean_oecd GGREV PC_GDP oecd_govt_rev.dta gov_rev_pc_gdp
 check_dup_id "iso3c year"
 
 // deficit
-import delimited oecd_DP_LIVE_11082021203534767.csv, encoding(UTF-8) clear 
+import delimited "oecd_DP_LIVE_11082021203534767.csv", encoding(UTF-8) clear 
 clean_oecd GGNLEND PC_GDP oecd_govt_deficit.dta gov_deficit_pc_gdp
 check_dup_id "iso3c year"
 
 // expenditrure
-import delimited oecd_DP_LIVE_11082021203550955.csv, encoding(UTF-8) clear 
+import delimited "oecd_DP_LIVE_11082021203550955.csv", encoding(UTF-8) clear 
 keep if indicator == "GGEXP"
 keep if measure == "PC_GDP"
 keep location time value subject
@@ -373,26 +373,56 @@ check_dup_id "iso3c year"
 save "oecd_govt_expend.dta", replace
 
 // tax revenue
-import delimited oecd_RS_GBL_11082021204025971.csv, encoding(UTF-8) clear 
+import delimited "oecd_RS_GBL_11082021204025971.csv", encoding(UTF-8) clear 
 keep if indicator == "Tax revenue as % of GDP"
 keep if levelofgovernment == "Total"
 keep if taxrevenue == "Total tax revenue"
 keep cou year value
 rename (cou value) (iso3c gov_tax_rev_pc_gdp)
 check_dup_id "iso3c year"
+drop if inlist(iso3c, "419", "AFRIC", "OAVG")
+}
 save "oecd_tax_revenue.dta", replace
 
-// merge with FTSE, NIKKEI, and S&P (Baker, Bloom, & Terry) -----------------
+// Govt revenues ------------------------------------------------------------
+
+use "government_revenue_dataset/grd_Merged.dta", clear
+egen caution_GRD = rowtotal(caution1accuracyqualityorco caution2resourcerevenuestax caution3unexcludedresourcere caution4inconsistencieswiths)
+keep iso country year caution_GRD rev_inc_sc tot_res_rev tax_inc_sc
+rename iso iso3c
+save "clean_grd.dta", replace
+
+
+// Govt deficits ------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+// FTSE, NIKKEI, and S&P (Baker, Bloom, & Terry) ----------------------------
 // https://sites.google.com/site/srbaker/academic-work
-// importantly, Baker, Bloom, & Terry data is normalized to have SD = 1
-// ask them for their data?
-use baker_bloom_terry_panel_data.dta, clear
+// Importantly, Baker, Bloom, & Terry data is normalized to have SD = 1
+{
+use "baker_bloom_terry_panel_data.dta", clear
 keep country yq l1lavgvol l1avgret
 sort country yq
+gen keep_indic = mod(yq, 1)
+keep if keep_indic == 0
+drop keep_indic
+rename (country yq) (iso3c year)	
+}
+save "cleaned_baker_bloom_terry_panel_data.dta", replace
 
-// merge with Correllates of war --------------------------------------------
+// Correllates of war -------------------------------------------------------
 // make sure that we have 1 country-year after the merge
-
+{
 // get the country codes ----------
 import delimited system2016.csv, clear
 keep stateabb ccode
@@ -420,8 +450,12 @@ program clean_cow
 	keep `vars_keep_'
 	
 	// replace missing values
+		//  -9 = year unknown
+		//  -7 = ongoing
+		//  -8 = not applicable
+
 	foreach i of varlist _all {
-		replace `i' = . if inlist(`i', -9, -8, -7, -6)
+			replace `i' = . if inlist(`i', -9, -8, -7, -6)
 	}
 end
 
@@ -429,24 +463,38 @@ tempfile intra inter nonstate extra
 
 // INTRA -------
 clear
-clean_cow "INTRA-STATE WARS v5.1.dta" "warnum ccode* startmo* starty* endmo* endy*"
+clean_cow "INTRA-STATE WARS v5.1.dta" "warnum ccode* starty* endy*"
+foreach i of varlist _all {
+assert `i' != -9
+}
+gen filename = "intra"
 save `intra'
 
 // INTER --------
-clean_cow "directed dyadic war may 2018.dta" "warnum state* warstrtmnth warstrtday warstrtyr warendmnth warenday warendyr"
+clean_cow "directed dyadic war may 2018.dta" "warnum state* warstrtyr warendyr"
+foreach i of varlist _all {
+assert `i' != -9
+}
+gen filename = "inter"
+assert warstrtyr !=. & warendyr!=.
 save `inter'
 
 // NONSTATE ---------
 import delimited "cow_Non-StateWarData_v4.0.csv", clear
 
 // EXTRA-STATE ----------
-clean_cow "Extra-StateWarData_v4.0.csv" "warnum ccode* startmo* starty* endmo* endy*"
+clean_cow "Extra-StateWarData_v4.0.csv" "warnum ccode* starty* endy*"
+foreach i of varlist _all {
+assert `i' != -9
+}
+br if startyear1 != . & endyear1 == .
 
 // we can replace ccode2 variable because this is a 1-state w/ a nonstate actor
 replace ccode1 = ccode2 if ccode1 == .
 assert ccode1 != .
 assert ccode1 ==ccode2 if ccode2 != .
 drop ccode2
+gen filename = "extra"
 save `extra'
 
 // append the correllates of war datasets -------
@@ -513,6 +561,7 @@ check_dup_id "ccode"
 restore
 
 // pivot longer: ---------
+drop filename
 ds
 local varlist `r(varlist)'
 di "`varlist'"
@@ -554,14 +603,18 @@ drop dup
 tempfile start_end_of_wars_long
 save `start_end_of_wars_long'
 
-
 // create a grid of all the combinations of iso3c and year from 1800 to 2021
 keep iso3c
 duplicates drop
 set obs 400
 gen year = 1800 + _n
 fillin iso3c year
-drop if iso3c == "" | year > 2021
+
+// Our EXTRA-STATE war dataset goes to 2007.
+// Our INTER-STATE war dataset goes to 2010.
+// Our INTRA-STATE war dataset goes to 2014.
+// So, we have to take the minimum of these dates 
+drop if iso3c == "" | year > 2007
 drop _fillin
 
 // merge in our war dataset
@@ -574,24 +627,60 @@ replace war = 1 if type == "START"
 replace war = 0 if type == "END"
 replace war = 0 if type == ""
 replace war = 1 if _m == 3
+drop if year > 2007
+keep iso3c year war
+}
 
+save "finalized_war.dta", replace
 
+// Merge all together --------------------------------------------------------
+{
+clear
+input str40 datasets
+	"historical_wb_income_classifications.dta"
+	"oecd_govt_expend.dta"
+	"oecd_tax_revenue.dta"
+	"oecd_govt_rev.dta"
+	"oecd_govt_deficit.dta"
+	"cleaned_baker_bloom_terry_panel_data.dta"
+	"finalized_war.dta"
+end
+levelsof datasets, local(datasets)
+clear
 
+use "pwt_cleaned.dta"
 
+foreach i in `datasets' {
+	di "`i'"
+	mmerge iso3c year using `i'
+	drop _m
+}
 
+check_dup_id "iso3c year"
+fillin iso3c year
+drop _f	
+}
 
+save "final_labor_growth.dta", replace
 
+// Checks --------------------------------------------------------------------
+drop war
+foreach i of varlist _all {
+	gen miss_`i' = missing(`i')
+}
+egen miss = rowtotal(miss_iso3c miss_year miss_rgdp_pwt miss_l1lavgvol miss_l1avgret miss_income miss_gov_deficit_pc_gdp miss_gov_exp_DEF miss_gov_exp_ECOAFF miss_gov_exp_EDU miss_gov_exp_ENVPROT miss_gov_exp_GRALPUBSER miss_gov_exp_HEALTH miss_gov_exp_HOUCOMM miss_gov_exp_PUBORD miss_gov_exp_RECULTREL miss_gov_exp_SOCPROT miss_gov_exp_TOT miss_gov_rev_pc_gdp miss_gov_tax_rev_pc_gdp)
+drop if miss == 18
 
+// Just check the Yemen bit again? Is it fixed now?
+// Take a look at the start dates for the COW datasets (?) -- doesn't matter because 
+// it's so long.
 
+// grab fertility data
 
-
-
-
-
-
-
-
-
+// to do --------
+// perhaps we want to include some of the shocks in the baker bloom paper?
+// add **checks** at the end
+// take a look at the labor - growth relationship in the literature?
 
 
 
@@ -610,8 +699,6 @@ replace war = 1 if _m == 3
 
 // TODO: finish appending and merging this
 // ?????? TODO: ask Charles what to do about NON-state war? --> don't have country codes
-// to do: turning each intrastate, interstate war 
-// into labeled countrycodes
 // --------------------
 // confirm that dyadic war can REPLACE interstate war?
 // --------------------
