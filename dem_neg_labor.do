@@ -673,104 +673,21 @@ drop war
 foreach i of varlist _all {
 	gen miss_`i' = missing(`i')
 }
-egen miss = rowtotal(miss_iso3c miss_year miss_rgdp_pwt miss_l1lavgvol miss_l1avgret miss_income miss_gov_deficit_pc_gdp miss_gov_exp_DEF miss_gov_exp_ECOAFF miss_gov_exp_EDU miss_gov_exp_ENVPROT miss_gov_exp_GRALPUBSER miss_gov_exp_HEALTH miss_gov_exp_HOUCOMM miss_gov_exp_PUBORD miss_gov_exp_RECULTREL miss_gov_exp_SOCPROT miss_gov_exp_TOT miss_gov_rev_pc_gdp miss_gov_tax_rev_pc_gdp)
+#delimit ;
+		egen miss = rowtotal(miss_iso3c miss_year miss_rgdp_pwt miss_l1lavgvol
+		miss_l1avgret miss_income miss_gov_deficit_pc_gdp miss_gov_exp_DEF
+		miss_gov_exp_ECOAFF miss_gov_exp_EDU miss_gov_exp_ENVPROT
+		miss_gov_exp_GRALPUBSER miss_gov_exp_HEALTH miss_gov_exp_HOUCOMM
+		miss_gov_exp_PUBORD miss_gov_exp_RECULTREL miss_gov_exp_SOCPROT
+		miss_gov_exp_TOT miss_gov_rev_pc_gdp miss_gov_tax_rev_pc_gdp)
+		;
+#delimit cr
 drop if miss == 18
 drop miss*
 
-// Analysis -------------------
-use "final_labor_growth.dta", clear
 
-// restrict population to 5 year chunks
-gen year_mod = mod(year, 5)
-keep if year_mod == 0
-drop year_mod
 
-// take a lag of that sum & find the percent change in population
-fillin iso3c year
-sort iso3c year
-drop _f
-foreach i in rgdp_pwt poptotal {
-	// lag population and real GDP
-	gen L1_`i' = `i'[_n-1] if iso3c == iso3c[_n-1]
-	gen L2_`i' = `i'[_n-2] if iso3c == iso3c[_n-2]
-	// percent change in population & real GDP by 5-yr and 10-yr periods
-	gen P1_`i' = (`i' / L1_`i') - 1
-	gen P2_`i' = (`i' / L2_`i') - 1
-	// average percent change in population & real GDP by 5-yr and 10-yr periods
-	gen aveP1_`i' = (`i' / L1_`i')^(1/5) - 1
-	gen aveP2_`i' = (`i' / L2_`i')^(1/10) - 1
-	// if !!!!!!!!!!1
-	gen prior_10_`i' = 1 if (aveP1_`i'[_n+1] < 0 | aveP1_`i'[_n+2] < 0) & ///
-		(iso3c == iso3c[_n+1]) & (iso3c == iso3c[_n+2])
-}
 
-// tag whether that percent difference is negative
-foreach i in rgdp_pwt poptotal {
-	gen NEG_`i' = "Negative" if aveP1_`i' < 0
-	replace NEG_`i' = "Positive" if aveP1_`i' >= 0 & aveP1_`i'!=.
-}
-
-// create a histogram with x axis being the 5 year period
-drop if year >= 2020 | year <= 1950
-histogram year, bin(20) percent ytitle(Percent) by(NEG_rgdp_pwt)
-graph export "hist_negative_pop_years_5yr_periods.png", replace
-
-// median size of pop growth decline:
-preserve
-keep if NEG_rgdp_pwt == "Negative"
-codebook aveP1_rgdp_pwt
-restore
-
-// What were economic growth rates during those five year periods compared to 
-// the (last) (ten year?) period before labor force growth was negative?
-gen a = aveP2_rgdp_pwt if ///
-			NEG_poptotal[_n-1] == "Negative" & ///
-			NEG_poptotal[_n-2] == "Negative" & ///
-			iso3c[_n-1] == iso3c & ///
-			iso3c[_n-2] == iso3c
-
-gen temp_year = year if NEG_rgdp_pwt == "Negative"
-
-// to do: how do I get 
-clear
-set obs 15
-input long id
-5
-1
-4
-1
-1
-2
-2
-2
-4
-4
-4
-1
-5
-4
-1
-end
-
-generate long obs = _n 
-by id (obs), sort: replace obs = obs[1] 
-by obs, sort: gen byte group = _n == 1
-replace group = sum(group) 
-summarize group, meanonly 
-local max = r(max) 
-forvalues i = 1/`max' {
-
-}
-summarize id if group == `i', meanonly 
-local which = r(min) 
-replace obs = _n 
-summarize obs if group == `i', meanonly 
-local which = id[`r(min)'] 
-			
-			
-// histogram of percentage drop of workers GIVEN negative drop in workers
-// get average growth for 10 yr period before labor growth was negative
-// create a table of 5 yr growth rates VS. global & income group average growth
 // keep fertility rates
 
 
