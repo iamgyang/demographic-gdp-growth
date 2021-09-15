@@ -1,26 +1,42 @@
+// !! to do: find out the other variable labels and definitions of the OECD data.
+
 // somehow use this as well?
 // https://www.qogdata.pol.gu.se/search/
 
-// Macros -------------------------------------------------------------------
-clear all
+// Macros ----------------------------------------------------------------
 
+clear all 
+set more off
+set varabbrev off
+set scheme s1mono
+set type double, perm
+
+// CHANGE THIS!! --- Define your own directories:
 foreach user in "`c(username)'" {
 	global root "C:/Users/`user'/Dropbox/CGD/Projects/dem_neg_labor"
-	global input "$root/input"
-	global output "$root/output"
-	global paper "$root/paper"
 }
-cd "$input"
 
+global code        "$root/code"
+global input       "$root/input"
+global output      "$root/output"
+cd "$input"
 global check "yes"
 
-clear all
-set more off 
-cls
+// CHANGE THIS!! --- Do we want to install user-defined functions?
+loc install_user_defined_functions "No"
+
+if ("`install_user_defined_functions'" == "Yes") {
+	foreach i in rangestat wbopendata kountry mmerge outreg2 somersd ///
+	asgen moss reghdfe ftools fillmissing {
+		ssc install `i'
+	}
+}
 
 // Define programs -----------------------------------------------------------
 
 program drop _all
+
+quietly capture program drop check_dup_id
 program check_dup_id
 	args id_vars
 	preserve
@@ -30,7 +46,8 @@ program check_dup_id
 	assert dup == 0
 	restore
 	end
-	
+
+quietly capture program drop naomit
 program naomit
 	foreach var of varlist _all {
 		drop if missing(`var')
@@ -399,15 +416,6 @@ save "clean_grd.dta", replace
 // From IMF fiscal monitor (FM)
 import delimited "IMF_fiscal_monitor.csv", clear
 
-
-
-
-
-
-
-
-
-
 // FTSE, NIKKEI, and S&P (Baker, Bloom, & Terry) ----------------------------
 // https://sites.google.com/site/srbaker/academic-work
 // Importantly, Baker, Bloom, & Terry data is normalized to have SD = 1
@@ -537,9 +545,9 @@ save `appended'
 // Change to be a dataset with just 1 column for the state.
 use "cor_war_(cow)_codes.dta", clear
 mmerge ccode using `appended'
-assert inlist(_m, 1, 3)
-keep if _m == 3
-drop _m
+assert inlist(_merge, 1, 3)
+keep if _merge == 3
+drop _merge
 
 tempfile part1
 save `part1'
@@ -552,7 +560,7 @@ tempfile part2
 save `part2'
 
 append using `part1'
-drop _m ccodeb
+drop _merge ccodeb
 
 // make sure that each Country ISO3c code has a 1-1 match with the numeric codes
 preserve
@@ -628,12 +636,13 @@ gen war = 0
 replace war = 1 if type == "START"
 replace war = 0 if type == "END"
 replace war = 0 if type == ""
-replace war = 1 if _m == 3
+replace war = 1 if _merge == 3
 drop if year > 2007
 keep iso3c year war
 }
 
 save "finalized_war.dta", replace
+use "finalized_war.dta", clear
 
 // Merge all together --------------------------------------------------------
 {
@@ -657,13 +666,44 @@ use "pwt_cleaned.dta"
 foreach i in `datasets' {
 	di "`i'"
 	mmerge iso3c year using `i'
-	drop _m
+	drop _merge
 }
 
 check_dup_id "iso3c year"
 fillin iso3c year
 drop _f	
 }
+
+// TO DO: is the GRD database / OECD database about CENTRAL gov't or about local / STATE govt's??
+label variable caution_GRD "Caution notes from Global Revenue Database data"
+label variable country "Country"
+label variable gov_deficit_pc_gdp "Government deficit  (% GDP)"
+label variable gov_rev_pc_gdp "Total government revenue (% GDP)"
+label variable gov_tax_rev_pc_gdp "Total government tax revenue (% GDP)"
+label variable income "Historical WB income classificaiton"
+label variable iso3c "ISO3c country code"
+label variable l1avgret "Stock returns (normalized & CPI inflation adjusted); cumulative return over the proceeding four quarters"
+label variable l1lavgvol "Stock volatility; average quarterly standard deviations of daily stock returns over previous four quarters"
+label variable poptotal "Total Population"
+label variable rev_inc_sc "Government revenue including Social Contributions"
+label variable rgdp_pwt "GDP, PPP (PWT)"
+label variable tax_inc_sc "Taxes including social contributions"
+label variable tot_res_rev "Government Total Resource Revenue"
+label variable war "Country in war"
+label variable year "Year"
+
+// OECD government expenditure variables
+label variable gov_exp_DEF "Gov exp: defence"
+label variable gov_exp_ECOAFF "Gov exp: economic affairs"
+label variable gov_exp_EDU "Gov exp: education"
+label variable gov_exp_ENVPROT "Gov exp: environmental protection"
+label variable gov_exp_GRALPUBSER "Gov exp: general public services"
+label variable gov_exp_HEALTH "Gov exp: health"
+label variable gov_exp_HOUCOMM "Gov exp: housing and community amenities"
+label variable gov_exp_PUBORD "Gov exp: public order and safety"
+label variable gov_exp_RECULTREL "Gov exp: recreation, culture and religion"
+label variable gov_exp_SOCPROT "Gov exp: social protection"
+label variable gov_exp_TOT "Gov exp: TOTAL"
 
 save "final_labor_growth.dta", replace
 
@@ -693,6 +733,11 @@ drop miss*
 
 
 // to do --------
+// get historical income groups
+// label variables appropriately
+// create the dataset BEFORE you start whittling it down for the graphs (do the lag vars for unemployment, govt rev, etc. as well)
+
+
 // Just check the Yemen bit again? Is it fixed now?
 // Take a look at the start dates for the COW datasets (?) -- doesn't matter because 
 // it's so long.
@@ -728,6 +773,7 @@ drop miss*
 // What were economic growth rates during those five year periods compared to the (last) (ten year?) period before labor force growth was negative?
 //
 // What were economic growth rates during those five year periods compared to the global (and country income group) average growth?
+// ---------------------------------------------
 //
 // What happened to government revenues and deficits during those periods compared to prior?
 //
