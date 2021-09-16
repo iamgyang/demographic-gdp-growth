@@ -416,6 +416,25 @@ save "clean_grd.dta", replace
 // From IMF fiscal monitor (FM)
 import delimited "IMF_fiscal_monitor.csv", clear
 
+// IMF Global Finance Statistics - Revenue
+import delimited "imf_govt_finance_statistics/GFSE_09-11-2021 22-01-15-19_timeSeries.csv", clear
+
+
+// IMF Global Finance Statistics - Expense
+import delimited "imf_govt_finance_statistics/GFSR_09-11-2021 22-01-01-95_timeSeries.csv", clear
+
+
+
+
+
+
+
+
+
+
+
+
+
 // FTSE, NIKKEI, and S&P (Baker, Bloom, & Terry) ----------------------------
 // https://sites.google.com/site/srbaker/academic-work
 // Importantly, Baker, Bloom, & Terry data is normalized to have SD = 1
