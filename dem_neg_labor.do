@@ -809,7 +809,7 @@ foreach i in `datasets' {
 
 check_dup_id "iso3c year"
 fillin iso3c year
-drop _f	
+drop _fillin
 }
 
 // TO DO: is the GRD database / OECD database about CENTRAL gov't or about local / STATE govt's??
@@ -823,10 +823,11 @@ label variable iso3c "ISO3c country code"
 label variable l1avgret "Stock returns (normalized & CPI inflation adjusted); cumulative return over the proceeding four quarters"
 label variable l1lavgvol "Stock volatility; average quarterly standard deviations of daily stock returns over previous four quarters"
 label variable poptotal "Total Population"
-label variable rev_inc_sc "Government revenue including Social Contributions"
+label variable popwork "Total Working-Age Population"
+label variable rev_inc_sc "Government revenue including Social Contributions (UN GRD)"
 label variable rgdp_pwt "GDP, PPP (PWT)"
-label variable tax_inc_sc "Taxes including social contributions"
-label variable tot_res_rev "Government Total Resource Revenue"
+label variable tax_inc_sc "Taxes including social contributions (UN GRD)"
+label variable tot_res_rev "Government Total Resource Revenue (UN GRD)"
 label variable war "Country in war"
 label variable year "Year"
 
@@ -843,7 +844,30 @@ label variable gov_exp_RECULTREL "Gov exp: recreation, culture and religion"
 label variable gov_exp_SOCPROT "Gov exp: social protection"
 label variable gov_exp_TOT "Gov exp: TOTAL"
 
+// IMF government expenditure variables:
+label variable fm_gov_exp "Government expenditures (% of GDP) (IMF Fiscal Monitor)"
+label variable fm_gov_rev "Government revenue (% of GDP) (IMF Fiscal Monitor)"
+label variable gov_expense "General budgetary government expense (% of GDP) (IMF GFS)"
+label variable gov_revenue "General budgetary government revenue (% of GDP) (IMF GFS)"
+
 save "final_labor_growth.dta", replace
+
+graph matrix rev_inc_sc fm_gov_rev gov_revenue if gov_revenue < 200, half
+graph export "s_plot_matrix_gov_rev.png", width(400) height(400) replace
+graph matrix fm_gov_exp gov_expense if gov_expense < 200, half
+graph export "s_plot_matrix_gov_exp.png", width(400) height(400) replace
+graph matrix rev_inc_sc fm_gov_rev gov_revenue fm_gov_exp gov_expense if gov_expense < 200 & gov_revenue<200, half
+graph export "s_plot_matrix_gov_exp_rev.png", width(400) height(400) replace
+graph close
+
+// we have outliers with ecuador and congo kinsasha
+br gov_expense gov_revenue iso3c year if (gov_expense>2000 & gov_expense != .) | (gov_revenue>2000 & gov_revenue!=.)
+keep iso3c year rev_inc_sc fm_gov_rev gov_revenue fm_gov_exp gov_expense
+drop if year > 2020
+// which revenue variable is less empty?
+mdesc rev_inc_sc fm_gov_rev gov_revenue 
+// which expense variable is less empty?
+mdesc fm_gov_exp gov_expense
 
 // Checks --------------------------------------------------------------------
 use "final_labor_growth.dta", clear
