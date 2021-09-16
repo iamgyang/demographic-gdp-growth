@@ -54,15 +54,41 @@ program naomit
 	}
 	end
 
+quietly capture program drop conv_ccode
+program conv_ccode
+args country_var
+	kountry `country_var', from(other) stuck
+	ren(_ISO3N_) (temp)
+	kountry temp, from(iso3n) to(iso3c)
+	drop temp
+	ren (_ISO3C_) (iso)
+end
+
 // UN population estimates -------------------------------------------
 
 import delimited "un_WPP2019_PopulationByAgeSex_Medium.csv", clear
 keep if variant == "Medium"
 keep location time agegrp agegrpstart agegrpspan poptotal
-gen agegrpstart2 = min(agegrpstart, 80)
+
+preserve
+	keep if agegrpstart < 65 & agegrpstart >= 15
+	collapse (sum) poptotal, by(location time)
+	rename poptotal popwork
+	replace popwork = popwork * 1000
+	rename location country
+	check_dup_id "country time"
+	tempfile un_working_pop
+	save `un_working_pop'
+restore
+
 collapse (sum) poptotal, by(location time)
 replace poptotal = poptotal * 1000
 rename location country
+
+mmerge country time using `un_working_pop'
+check_dup_id "country time"
+assert _merge == 3
+drop _merge
 
 // convert country names to ISO3c codes
 kountry country, from(other) stuck
