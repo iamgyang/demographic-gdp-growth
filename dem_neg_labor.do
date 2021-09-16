@@ -372,7 +372,7 @@ if ("$check" == "yes") {
 drop country
 rename (time) (year)
 
-save un_pop_estimates_cleaned.dta, replace
+save "un_pop_estimates_cleaned.dta", replace
 
 // PWT GDP (growth rates) -----------------------------------------------------
 {
@@ -429,37 +429,127 @@ drop if inlist(iso3c, "419", "AFRIC", "OAVG")
 save "oecd_tax_revenue.dta", replace
 
 // Govt revenues ------------------------------------------------------------
-
+{
 use "government_revenue_dataset/grd_Merged.dta", clear
 egen caution_GRD = rowtotal(caution1accuracyqualityorco caution2resourcerevenuestax caution3unexcludedresourcere caution4inconsistencieswiths)
 keep iso country year caution_GRD rev_inc_sc tot_res_rev tax_inc_sc
 rename iso iso3c
 save "clean_grd.dta", replace
-
+}
 
 // Govt deficits ------------------------------------------------------------
 
-// From IMF fiscal monitor (FM)
+// From IMF fiscal monitor (FM) ----------------
 import delimited "IMF_fiscal_monitor.csv", clear
+keep ïcountryname countrycode timeperiod expenditureofgdpg_x_g01_gdp_pt revenueofgdpggr_g01_gdp_pt
+rename ïcountryname country
+conv_ccode country
+replace iso = "HKG" if country =="China, P.R.: Hong Kong"
+replace iso = "CHN" if country =="China, P.R.: Mainland"
+replace iso = "YEM" if country =="Yemen, Republic of"
+replace iso = "VEN" if country =="Venezuela, Republica Bolivariana de"
+replace iso = "AZE" if country =="Azerbaijan, Republic of"
+replace iso = "CPV" if country =="Cabo Verde"
+replace iso = "MKD" if country =="North Macedonia"
+replace iso = "BHR" if country =="Bahrain, Kingdom of"
+replace iso = "ARM" if country =="Armenia, Republic of"
+replace iso = "TLS" if country =="Timor-Leste, Dem. Rep. of"
+replace iso = "STP" if country =="SÃ£o TomÃ© and PrÃ­ncipe"
+replace iso = "XKX" if country =="Kosovo"
+replace iso = "MAC" if country =="Macao SAR"
+replace iso = "SWZ" if country =="Eswatini"
+drop if iso == ""
+rename timeperiod year
+check_dup_id "iso countrycode year"
+check_dup_id "iso year"
+check_dup_id "countrycode year"
+rename iso iso3c
+tempfile imf_FM
+rename (expenditureofgdpg_x_g01_gdp_pt revenueofgdpggr_g01_gdp_pt) (fm_gov_exp fm_gov_rev)
+save "IMF_FM.dta", replace
 
-// IMF Global Finance Statistics - Revenue
-import delimited "imf_govt_finance_statistics/GFSE_09-11-2021 22-01-15-19_timeSeries.csv", clear
+// cleans the files from IMF timseries of GFS ----------
+capture quietly program drop imf_clean_timeseries_GFS
+program imf_clean_timeseries_GFS
+	args path unitname attribute classificationname NAME
 
+	import delimited "`path'", clear
+	keep if unitname == "`unitname'" & attribute == "`attribute'" & classificationname == "`classificationname'"
+	foreach i of varlist v* {
+		loc lab: variable label `i'
+		loc lab = "x" + "`lab'"
+		rename `i' `lab'
+		destring `lab', replace
+	}
+	keep ïcountryname countrycode sectorname x*
+	capture quietly drop x
+	reshape long x, i(ïcountryname countrycode sectorname) j(year, string)
+	keep if sectorname == "Budgetary central government"
+	check_dup_id "countrycode year"
+	destring year, replace
+	rename x `NAME'
+	drop if `NAME' == .
+	drop sectorname
 
-// IMF Global Finance Statistics - Expense
-import delimited "imf_govt_finance_statistics/GFSR_09-11-2021 22-01-01-95_timeSeries.csv", clear
+	rename ïcountryname country
+	conv_ccode country
+	if (1==1) {
+		replace iso = "AFG" if country == "Afghanistan, Islamic Rep. of"
+		replace iso = "ARM" if country == "Armenia, Rep. of"
+		replace iso = "AZE" if country == "Azerbaijan, Rep. of"
+		replace iso = "BHR" if country == "Bahrain, Kingdom of"
+		replace iso = "BLR" if country == "Belarus, Rep. of"
+		replace iso = "CPV" if country == "Cabo Verde"
+		replace iso = "CAF" if country == "Central African Rep."
+		replace iso = "MAC" if country == "China, P.R.: Macao"
+		replace iso = "CHN" if country == "China, P.R.: Mainland"
+		replace iso = "COD" if country == "Congo, Dem. Rep. of the"
+		replace iso = "HRV" if country == "Croatia, Rep. of"
+		replace iso = "CIV" if country == "CÃ´te d'Ivoire"
+		replace iso = "EGY" if country == "Egypt, Arab Rep. of"
+		replace iso = "GNQ" if country == "Equatorial Guinea, Rep. of"
+		replace iso = "EST" if country == "Estonia, Rep. of"
+		replace iso = "SWZ" if country == "Eswatini, Kingdom of"
+		replace iso = "ETH" if country == "Ethiopia, The Federal Dem. Rep. of"
+		replace iso = "FJI" if country == "Fiji, Rep. of"
+		replace iso = "IRN" if country == "Iran, Islamic Rep. of"
+		replace iso = "KAZ" if country == "Kazakhstan, Rep. of"
+		replace iso = "LAO" if country == "Lao People's Dem. Rep."
+		replace iso = "LSO" if country == "Lesotho, Kingdom of"
+		replace iso = "MDG" if country == "Madagascar, Rep. of"
+		replace iso = "MHL" if country == "Marshall Islands, Rep. of the"
+		replace iso = "MDA" if country == "Moldova, Rep. of"
+		replace iso = "MOZ" if country == "Mozambique, Rep. of"
+		replace iso = "NRU" if country == "Nauru, Rep. of"
+		replace iso = "MKD" if country == "North Macedonia, Republic of"
+		replace iso = "PLW" if country == "Palau, Rep. of"
+		replace iso = "POL" if country == "Poland, Rep. of"
+		replace iso = "SMR" if country == "San Marino, Rep. of"
+		replace iso = "SRB" if country == "Serbia, Rep. of"
+		replace iso = "SVN" if country == "Slovenia, Rep. of"
+		replace iso = "STP" if country == "SÃ£o TomÃ© and PrÃ­ncipe, Dem. Rep. of"
+		replace iso = "TJK" if country == "Tajikistan, Rep. of"
+		replace iso = "TZA" if country == "Tanzania, United Rep. of"
+		replace iso = "TLS" if country == "Timor-Leste, Dem. Rep. of"
+		replace iso = "UZB" if country == "Uzbekistan, Rep. of"
+		replace iso = "YEM" if country == "Yemen, Rep. of"
+	}
 
+	check_dup_id "iso countrycode year"
+	check_dup_id "iso year"
+	check_dup_id "countrycode year"
 
+	rename iso iso3c
+end
 
+// IMF Global Finance Statistics - Revenue & Expense ----------
+imf_clean_timeseries_GFS "imf_govt_finance_statistics/GFSE_09-11-2021 22-01-15-19_timeSeries.csv" "Percent of GDP" "Value" "Expense" "gov_expense"
+drop countrycode country
+save "IMF_GFS_expenses.dta", replace
 
-
-
-
-
-
-
-
-
+imf_clean_timeseries_GFS "imf_govt_finance_statistics/GFSR_09-11-2021 22-01-01-95_timeSeries.csv" "Percent of GDP" "Value" "Revenue" "gov_revenue"
+drop countrycode country
+save "IMF_GFS_revenue.dta", replace
 
 // FTSE, NIKKEI, and S&P (Baker, Bloom, & Terry) ----------------------------
 // https://sites.google.com/site/srbaker/academic-work
@@ -698,6 +788,9 @@ input str40 datasets
 	"oecd_tax_revenue.dta"
 	"oecd_govt_rev.dta"
 	"oecd_govt_deficit.dta"
+	"IMF_FM.dta"
+	"IMF_GFS_expenses.dta"
+	"IMF_GFS_revenue.dta"
 	"clean_grd.dta"
 	"un_pop_estimates_cleaned.dta"
 	"cleaned_baker_bloom_terry_panel_data.dta"
