@@ -52,14 +52,22 @@ graph close
 // average lag 10-year growth rate by a missing value if the average five-year
 // growth rate is positive or absent (not negative).
 foreach i in rgdp_pwt rev_inc_sc gov_deficit_pc_gdp gov_exp_TOT {
-	gen aveP2_`i'_bef = aveP2_`i' if aveP2_poptotal >= 0
-	sort iso3c year
-	by iso3c: fillmissing aveP2_`i'_bef, with(previous)
-	gen aveP2_`i'_bef2 = aveP2_`i'_bef[_n-1] if iso3c == iso3c[_n-1]
-	drop aveP2_`i'_bef
-	rename aveP2_`i'_bef2 aveP2_`i'_bef
-	replace aveP2_`i'_bef = . if NEG_poptotal != "Negative"
+	loc lab: variable label `i'
+	foreach num of numlist 1/2 {
+		local yr = cond(`num' == 1 , 5, 10)
+		gen aveP`num'_`i'_bef = aveP`num'_`i' if aveP`num'_poptotal >= 0
+		sort iso3c year
+		by iso3c: fillmissing aveP`num'_`i'_bef, with(previous)
+		gen aveP`num'_`i'_bef2 = aveP`num'_`i'_bef[_n-1] if iso3c == iso3c[_n-1]
+		drop aveP`num'_`i'_bef
+		rename aveP`num'_`i'_bef2 aveP`num'_`i'_bef
+		replace aveP`num'_`i'_bef = . if NEG_poptotal != "Negative"
+		label variable aveP`num'_`i'_bef "Avg ann gr, `lab', `yr'yr priod b/f neg labor gr"
+	}
 }
+
+// save finalized dataset:
+save "final_labor_growth_w_derived_variables.dta", replace
 
 // Median size of pop growth decline:
 preserve
@@ -85,16 +93,16 @@ restore
 // growth rates (annualized). Create a bar graph that has the average GDP growth
 // rate during a period of 5-years of labor force decline compared to the
 // most recent 10-years where the average labor force did not decline.
-quietly capture program drop bar_graph_ave_gdp_growth_rate
-program bar_graph_ave_gdp_growth_rate
+quietly capture program drop bar_graph_ave_growth_rate
+program bar_graph_ave_growth_rate
 args title
 #delimit ;
-		graph bar (asis) ave_gdp_growth, over(period) blabel(bar, size
-		(medium) color(black)) ytitle(GDP Growth Rate) 
+		graph bar (asis) ave_growth, over(period) blabel(bar, size
+		(medium) color(black)) ytitle(Growth Rate) 
 		ytitle(, size(medium)) title("`title'", size(medlarge)) 
 		scheme(s2color) graphregion(margin(medium) fcolor(white) 
 		ifcolor(white) ilcolor(none)) plotregion(margin(medium) fcolor(white) 
-		lcolor(none) ifcolor(white) ilcolor(none))
+		lcolor(none) ifcolor(white) ilcolor(none)) yscale(noline) ylabel(, nogrid)
 		;
 #delimit cr
 end
@@ -104,12 +112,12 @@ preserve
 	keep iso3c year aveP2_rgdp_pwt_bef aveP1_rgdp_pwt
 	naomit
 	reshape long ave, i(iso3c year) j(period, string)
-	rename ave ave_gdp_growth
+	rename ave ave_growth
 	replace period = "5 yr negative" if period == "P1_rgdp_pwt"
 	replace period = "10 yr positive" if period == "P2_rgdp_pwt_bef"
-	collapse (mean) ave_gdp_growth, by(period)
-	replace ave_gdp_growth=round(ave_gdp_growth, 0.001)
-	bar_graph_ave_gdp_growth_rate `"GDP growth rate during periods of" "positive or negative labor force growth"'
+	collapse (mean) ave_growth, by(period)
+	replace ave_growth=round(ave_growth, 0.001)
+	bar_graph_ave_growth_rate `"GDP growth rate during periods of" "positive or negative labor force growth"'
 	graph export "bar_GDP_growth_pos_neg_labor_growth.png", replace
 	graph close
 restore
@@ -128,19 +136,102 @@ preserve
 	replace period = "5 yr negative" if period == "P1_rgdp_pwt"
 	replace period = "Global" if period == "_global_aveP1_rgdp_pwt"
 	replace period = "Income-group" if period == "_income_aveP1_rgdp_pwt"
-	rename ave ave_gdp_growth
-	collapse (mean) ave_gdp_growth, by(period)
-	replace ave_gdp_growth=round(ave_gdp_growth, 0.001)
-	bar_graph_ave_gdp_growth_rate `"GDP growth rate during periods of" "negative labor force growth" "(vs. global and income-group average)"'
+	rename ave ave_growth
+	collapse (mean) ave_growth, by(period)
+	replace ave_growth=round(ave_growth, 0.001)
+	bar_graph_ave_growth_rate `"GDP growth rate during periods of" "negative labor force growth" "(vs. global and income-group average)"'
 	graph export "bar_GDP_growth_neg_labor_growth_income_world.png", replace
 	graph close
 restore
 
-
-//TODO :: replace INCOME with historical income
-
 // What happened to government revenues and deficits during those periods 
-// compared to prior?
+// compared to prior? ---------------------------------------------------------
+
+use "final_labor_growth_w_derived_variables.dta", clear
+keep if NEG_poptotal == "Negative"
+keep iso3c year aveP1_rev_inc_sc aveP1_rev_inc_sc_bef
+naomit
+
+ds
+local varlist `r(varlist)'
+local excluded iso3c year
+local to_gather: list varlist - excluded
+foreach i in `to_gather' {
+	rename `i' ave`i'
+}
+reshape long ave, i(iso3c year) j(period, string)
+
+replace period = "Negative" if period == "aveP1_rev_inc_sc"
+replace period = "Positive" if period == "aveP1_rev_inc_sc_bef"
+
+rename ave ave_growth
+collapse (mean) ave_growth, by(period)
+replace ave_growth=round(ave_growth, 0.001)
+bar_graph_ave_growth_rate `"Revenue growth rate during periods of" "negative and positive labor force growth" "(5 year annual average)"'
+graph export "bar_revenue_growth_neg_labor_growth.png", replace
+graph close
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
