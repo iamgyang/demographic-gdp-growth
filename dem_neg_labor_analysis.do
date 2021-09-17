@@ -9,8 +9,8 @@ drop year_mod
 // Take a lag of that sum & find the percent change in population.
 fillin iso3c year
 sort iso3c year
-drop _f
-foreach i in rgdp_pwt poptotal rev_inc_sc gov_deficit_pc_gdp gov_exp_TOT {
+drop _fillin
+foreach i in rgdp_pwt popwork rev_inc_sc fm_gov_exp gov_deficit_pc_gdp gov_exp_TOT {
 	loc lab: variable label `i'
 	foreach num of numlist 1/2 {
 		local yr = cond(`num' == 1 , 5, 10)
