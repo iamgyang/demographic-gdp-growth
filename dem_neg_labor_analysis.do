@@ -27,7 +27,7 @@ foreach i in rgdp_pwt popwork rev_inc_sc fm_gov_exp gov_deficit_pc_gdp gov_exp_T
 }
 
 // Tag whether the average percent change in real GDP growth is negative.
-foreach i in rgdp_pwt poptotal rev_inc_sc gov_deficit_pc_gdp gov_exp_TOT {
+foreach i in rgdp_pwt popwork rev_inc_sc fm_gov_exp gov_deficit_pc_gdp gov_exp_TOT {
 	loc lab: variable label `i'
 	gen NEG_`i' = "Negative" if aveP1_`i' < 0
 	replace NEG_`i' = "Positive" if aveP1_`i' >= 0 & aveP1_`i'!=.
@@ -51,17 +51,17 @@ graph close
 // within the past five years was negative. So, finally, it replaces the
 // average lag 10-year growth rate by a missing value if the average five-year
 // growth rate is positive or absent (not negative).
-foreach i in rgdp_pwt rev_inc_sc gov_deficit_pc_gdp gov_exp_TOT {
+foreach i in rgdp_pwt rev_inc_sc fm_gov_exp gov_deficit_pc_gdp gov_exp_TOT {
 	loc lab: variable label `i'
 	foreach num of numlist 1/2 {
 		local yr = cond(`num' == 1 , 5, 10)
-		gen aveP`num'_`i'_bef = aveP`num'_`i' if aveP`num'_poptotal >= 0
+		gen aveP`num'_`i'_bef = aveP`num'_`i' if aveP`num'_popwork >= 0
 		sort iso3c year
 		by iso3c: fillmissing aveP`num'_`i'_bef, with(previous)
 		gen aveP`num'_`i'_bef2 = aveP`num'_`i'_bef[_n-1] if iso3c == iso3c[_n-1]
 		drop aveP`num'_`i'_bef
 		rename aveP`num'_`i'_bef2 aveP`num'_`i'_bef
-		replace aveP`num'_`i'_bef = . if NEG_poptotal != "Negative"
+		replace aveP`num'_`i'_bef = . if NEG_popwork != "Negative"
 		label variable aveP`num'_`i'_bef "Avg ann gr, `lab', `yr'yr priod b/f neg labor gr"
 	}
 }
@@ -108,7 +108,7 @@ args title
 end
 
 preserve
-	keep if NEG_poptotal == "Negative"
+	keep if NEG_popwork == "Negative"
 	keep iso3c year aveP2_rgdp_pwt_bef aveP1_rgdp_pwt
 	naomit
 	reshape long ave, i(iso3c year) j(period, string)
@@ -127,7 +127,7 @@ restore
 bysort income year: egen income_aveP1_rgdp_pwt=mean(aveP1_rgdp_pwt)
 bysort        year: egen global_aveP1_rgdp_pwt=mean(aveP1_rgdp_pwt)
 preserve
-	keep if NEG_poptotal == "Negative"
+	keep if NEG_popwork == "Negative"
 	keep iso3c year income aveP1_rgdp_pwt income_aveP1_rgdp_pwt global_aveP1_rgdp_pwt
 	naomit
 	rename (aveP1_rgdp_pwt income_aveP1_rgdp_pwt global_aveP1_rgdp_pwt) (aveP1_rgdp_pwt ave_income_aveP1_rgdp_pwt ave_global_aveP1_rgdp_pwt)
