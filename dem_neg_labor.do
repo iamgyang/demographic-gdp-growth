@@ -551,6 +551,63 @@ imf_clean_timeseries_GFS "imf_govt_finance_statistics/GFSR_09-11-2021 22-01-01-9
 drop countrycode country
 save "IMF_GFS_revenue.dta", replace
 
+// IMF Global Finance Statistics - Revenue
+import delimited "imf_govt_finance_statistics/GFSR_09-15-2021 14-54-37-77_panel.csv", clear
+
+
+// IMF Global Finance Statistics - Expenditure
+import delimited "imf_govt_finance_statistics/GFSE_09-15-2021 14-57-09-03_panel.csv", clear
+
+import delimited "imf_govt_finance_statistics/GFSR_09-11-2021 22-01-01-95_timeSeries.csv", clear
+
+
+
+
+import delimited "imf_govt_finance_statistics/GFSR_09-11-2021 22-01-01-95_timeSeries.csv", clear
+keep if classificationname == "Revenue"
+keep if sectorname == "Central government (incl. social security funds)"
+keep if unitname == "Percent of GDP" &  attribute == "Value"
+keep countrycode v*
+foreach i of varlist v* {
+	loc lab: variable label `i'
+	loc lab = "x" + "`lab'"
+	rename `i' `lab'
+}
+reshape x, i(countrycode) j(country)
+
+
+
+
+
+
+
+br
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // FTSE, NIKKEI, and S&P (Baker, Bloom, & Terry) ----------------------------
 // https://sites.google.com/site/srbaker/academic-work
 // Importantly, Baker, Bloom, & Terry data is normalized to have SD = 1
