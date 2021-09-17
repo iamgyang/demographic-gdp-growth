@@ -161,29 +161,39 @@ restore
 // What happened to government revenues and deficits during those periods 
 // compared to prior? ---------------------------------------------------------
 
-use "final_labor_growth_w_derived_variables.dta", clear
-keep if NEG_poptotal == "Negative"
-keep iso3c year aveP1_rev_inc_sc aveP1_rev_inc_sc_bef
-naomit
+foreach exp_or_rev in fm_gov_exp rev_inc_sc {
+	use "final_labor_growth_w_derived_variables.dta", clear
+	
+	keep if NEG_popwork == "Negative"
+	// !!!!!!!!!!
+	// WHY are we missing so much data here?
+// 	local exp_or_rev fm_gov_exp
+	keep iso3c year aveP1_`exp_or_rev' aveP1_`exp_or_rev'_bef NEG_popwork
+	
+	naomit
 
-ds
-local varlist `r(varlist)'
-local excluded iso3c year
-local to_gather: list varlist - excluded
-foreach i in `to_gather' {
-	rename `i' ave`i'
+	ds
+	local varlist `r(varlist)'
+	local excluded iso3c year
+	local to_gather: list varlist - excluded
+	foreach i in `to_gather' {
+		rename `i' ave`i'
+	}
+	reshape long ave, i(iso3c year) j(period, string)
+
+	replace period = "Negative" if period == "aveP1_`exp_or_rev'"
+	replace period = "Positive" if period == "aveP1_`exp_or_rev'_bef"
+
+	rename ave ave_growth
+	collapse (mean) ave_growth, by(period)
+	replace ave_growth=round(ave_growth, 0.001)
+
+	local rev_exp_label = cond("`exp_or_rev'" == "fm_gov_exp" , "Expenditure", "Revenue")
+
+	bar_graph_ave_growth_rate `"`rev_exp_label' growth rate during periods of" "negative and positive labor force growth" "(5 year annual average)"'
+	graph export "bar_`rev_exp_label'_growth_neg_labor_growth.png", replace
+	graph close
 }
-reshape long ave, i(iso3c year) j(period, string)
-
-replace period = "Negative" if period == "aveP1_rev_inc_sc"
-replace period = "Positive" if period == "aveP1_rev_inc_sc_bef"
-
-rename ave ave_growth
-collapse (mean) ave_growth, by(period)
-replace ave_growth=round(ave_growth, 0.001)
-bar_graph_ave_growth_rate `"Revenue growth rate during periods of" "negative and positive labor force growth" "(5 year annual average)"'
-graph export "bar_revenue_growth_neg_labor_growth.png", replace
-graph close
 
 
 
