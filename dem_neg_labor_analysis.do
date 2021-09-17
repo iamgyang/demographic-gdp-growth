@@ -36,9 +36,23 @@ foreach i in rgdp_pwt popwork rev_inc_sc fm_gov_exp gov_deficit_pc_gdp gov_exp_T
 
 // Create a histogram with x axis being the 5 year period
 drop if year >= 2020 | year <= 1950
-histogram year, bin(20) percent ytitle(Percent) by(NEG_rgdp_pwt)
-graph export "hist_negative_pop_years_5yr_periods.png", replace
-graph close
+preserve
+	histogram year, percent ytitle(Percent) by(NEG_popwork) discrete
+	graph export "hist_negative_pop_years_5yr_periods.png", replace
+	graph close
+
+	keep NEG_popwork year iso3c
+	drop if NEG_popwork	== ""
+	gen neg = 1 if NEG_popwork == "Negative"
+	replace neg = 0  if NEG_popwork == "Positive"
+	gen pos = abs(1-neg)
+	drop NEG_popwork 
+	br if year == 1995 & neg == 1
+	collapse (sum) neg pos, by(year)
+
+	graph bar (asis) neg pos, over(year, label(angle(vertical))) stack
+	graph export "hist_negative_pop_years_5yr_periods.png", replace
+restore
 
 // What were economic growth rates during those five year periods with negative
 // population growth rates compared to the (last) (ten year?) period before
