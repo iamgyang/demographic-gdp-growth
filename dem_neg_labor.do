@@ -34,8 +34,6 @@ if ("`install_user_defined_functions'" == "Yes") {
 
 // Define programs -----------------------------------------------------------
 
-program drop _all
-
 quietly capture program drop check_dup_id
 program check_dup_id
 	args id_vars
@@ -234,7 +232,7 @@ if (1==1) {
 	drop if country == "Group of Seven (G7)"
 	drop if country == "Group of Twenty (G20) - member states"
 	drop if country == "Gulf Cooperation Council (GCC)"
-	drop if country == "High-income countries"
+// 	drop if country == "High-income countries"
 	drop if country == "LLDC: Africa"
 	drop if country == "LLDC: Asia"
 	drop if country == "LLDC: Europe"
@@ -258,7 +256,7 @@ if (1==1) {
 	drop if country == "Less developed: Asia"
 	drop if country == "Less developed: Latin America and the Caribbean"
 	drop if country == "Less developed: Oceania"
-	drop if country == "Low-income countries"
+// 	drop if country == "Low-income countries"
 	drop if country == "Lower-middle-income countries"
 	drop if country == "Middle Africa"
 	drop if country == "Middle-income countries"
@@ -369,8 +367,10 @@ if ("$check" == "yes") {
 	pause off    
 }
 
-drop country
+// drop country
 rename (time) (year)
+
+save "un_pop_with_HIC_LIC.dta", replace
 
 save "un_pop_estimates_cleaned.dta", replace
 
