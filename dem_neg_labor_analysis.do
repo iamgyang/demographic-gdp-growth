@@ -35,8 +35,8 @@ foreach i in rgdp_pwt popwork rev_inc_sc fm_gov_exp gov_deficit_pc_gdp gov_exp_T
 }
 
 // Create a histogram with x axis being the 5 year period
-drop if year >= 2020 | year <= 1950
 preserve
+	drop if year >= 2020 | year <= 1950
 	histogram year, percent ytitle(Percent) by(NEG_popwork) discrete
 	graph export "hist_negative_pop_years_5yr_periods.png", replace
 	graph close
