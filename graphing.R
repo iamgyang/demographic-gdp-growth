@@ -1,0 +1,167 @@
+# To do:
+
+# do we want to get the IRON levels from NMC as opposed to CHAT? 
+# https://correlatesofwar.org/data-sets/national-material-capabilities
+
+# change to historical income groups instead of current income groups
+
+rm(list = ls()) # clear the workspace
+
+
+# Options: ----------------------------------------------------------------
+
+# debugging
+options(error=browser)
+options(error=NULL)
+
+# disable data.table auto-indexing (causes errors w/ dplyr functions)
+options(datatable.auto.index = FALSE)
+
+
+# Notes -------------------------------------------------------------------
+
+
+
+# Directories -------------------------------------------------------------
+
+# clear environment objects
+rm(list = ls())
+
+# You will have to edit this to be your own computer's working directories:
+user<-Sys.info()["user"]
+root_dir <- paste0("C:/Users/", user, "/Dropbox/CGD/Projects/dem_neg_labor/")
+input_dir <- paste0(root_dir, "input")
+output_dir <- paste0(root_dir, "output")
+code_dir <- paste0(root_dir, "code")
+
+setwd(input_dir)
+
+
+# Packages ---------------------------------------------------------------
+{
+    list.of.packages <- c(
+        "base", "car", "cowplot", "dplyr", "ggplot2", "ggthemes", "graphics", "grDevices",
+        "grid", "gridExtra", "gvlma", "h2o", "lubridate", "MASS", "readxl", "rio", "rms",
+        "rsample", "stats", "tidyr", "utils", "zoo", "xtable", "stargazer", "data.table",
+        "ggrepel", "foreign", "fst", "countrycode", "wbstats", "quantmod", "R.utils",
+        "leaps", "bestglm", "dummies", "caret", "jtools", "huxtable", "haven", "ResourceSelection",
+        "betareg", "quantreg", "margins", "plm", "collapse", "kableExtra", "tinytex",
+        "LambertW", "scales", "stringr", "imputeTS", "shadowtext", "pdftools", "glue",
+        "purrr", "OECD", "RobustLinearReg", "forcats", "WDI", "xlsx")
+}
+
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[, "Package"])]
+if (length(new.packages)) install.packages(new.packages, dependencies = TRUE)
+for (package in list.of.packages) {library(eval((package)), character.only = TRUE)}
+
+# set GGPLOT default theme:
+theme_set(theme_clean() + 
+              theme(plot.background = 
+                        element_rect(color = "white")))
+
+
+# source(paste0(root_dir, "code/", "helper_functions.R"))
+source(paste0("C:/Users/", user, "/Dropbox/Coding_General/personal.functions.R"))
+
+# ... ---------------------------------------------------------------------
+
+# Graphing ------------------------------
+
+
+# UN population figures: working age population
+df <- rio::import("un_pop_with_HIC_LIC.dta") %>% as.data.table()
+
+df <- df %>% 
+    filter(country == "High-income countries" |
+               country == "Low-income countries" | 
+               iso3c == "CHN" |
+               iso3c == "IND") %>% 
+    dfdt()
+
+df <- df[,.(popwork = sum(popwork, na.rm = TRUE)),by = .(country, year)]
+df[,country:=country %>% factor(., levels = c(
+    "High-income countries", 
+    "Low-income countries", 
+    "China", 
+    "India"
+))]
+
+plot <- df %>% ggplot(.,
+           aes(
+               x = year,
+               y = popwork,
+               group = country,
+               color = country
+           )) +
+    geom_line() + 
+    my_custom_theme + 
+    scale_x_continuous(breaks = seq(1950, 2100, 25)) + 
+    labs(y = "", subtitle = "Working Age Population (15-64)") + 
+    scale_color_stata()
+
+ggsave("Working Age Population China India Line.png", plot, width = 9, height = 7)
+
+
+# Percent of world's population with absolute number of workers expected to decline --------
+
+df <- rio::import("final_labor_growth_w_derived_variables.dta") %>% dfdt()
+df[,count:=ifelse(aveP1_popwork<0, 1, 0)]
+df <- df[,.(poptotal, count, iso3c, year)]
+df <- df[,.(poptotal = sum(poptotal, na.rm = T)),by = .(count, year)]
+df <- df[poptotal!=0]
+df[count==1, indic:= "Decline"]
+df[count==0, indic:= "Growth"]
+df[,globalpop:=sum(poptotal, na.rm = T),by=.(year)]
+df[,poptotl_perc:=poptotal/globalpop]
+
+plot <- df %>% 
+    filter(year!=1950) %>% 
+    ggplot(aes(
+    x = year,
+    y = round(poptotl_perc*100, 1),
+    group = indic,
+    color = indic
+)) + geom_line() +
+    my_custom_theme +
+    scale_x_continuous(breaks = seq(1950, 2100, 25)) +
+    labs(y = "", subtitle = "Percent of global population living in countries where growth in working age population (15-64) is expected \nto grow or decline") +
+    scale_color_stata()
+
+ggsave("Number of Population Growth and Decline Line.png", plot, width = 9, height = 7)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
