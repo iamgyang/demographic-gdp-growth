@@ -439,7 +439,7 @@ save "clean_grd.dta", replace
 
 // Govt deficits ------------------------------------------------------------
 
-// From IMF fiscal monitor (FM) ----------------
+// From IMF fiscal monitor (FM) ---------------------------------------------
 import delimited "IMF_fiscal_monitor.csv", clear
 keep ïcountryname countrycode timeperiod expenditureofgdpg_x_g01_gdp_pt revenueofgdpggr_g01_gdp_pt
 rename ïcountryname country
@@ -468,7 +468,7 @@ tempfile imf_FM
 rename (expenditureofgdpg_x_g01_gdp_pt revenueofgdpggr_g01_gdp_pt) (fm_gov_exp fm_gov_rev)
 save "IMF_FM.dta", replace
 
-// cleans the files from IMF timseries of GFS ----------
+// cleans the files from IMF timseries of GFS ------------------------------
 capture quietly program drop imf_clean_timeseries_GFS
 program imf_clean_timeseries_GFS
 	args path unitname attribute classificationname NAME
@@ -542,71 +542,14 @@ program imf_clean_timeseries_GFS
 	rename iso iso3c
 end
 
-// IMF Global Finance Statistics - Revenue & Expense ----------
-imf_clean_timeseries_GFS "imf_govt_finance_statistics/GFSE_09-11-2021 22-01-15-19_timeSeries.csv" "Percent of GDP" "Value" "Expense" "gov_expense"
+// IMF Global Finance Statistics - Revenue & Expense -----------------------
+imf_clean_timeseries_GFS "imf_govt_finance_statistics/GFSE_09-11-2021 22-01-15-19_timeSeries.csv" "Percent of GDP" "Value" "Expense" "gfs_gov_exp"
 drop countrycode country
 save "IMF_GFS_expenses.dta", replace
 
-imf_clean_timeseries_GFS "imf_govt_finance_statistics/GFSR_09-11-2021 22-01-01-95_timeSeries.csv" "Percent of GDP" "Value" "Revenue" "gov_revenue"
+imf_clean_timeseries_GFS "imf_govt_finance_statistics/GFSR_09-11-2021 22-01-01-95_timeSeries.csv" "Percent of GDP" "Value" "Revenue" "gfs_gov_rev"
 drop countrycode country
 save "IMF_GFS_revenue.dta", replace
-
-// IMF Global Finance Statistics - Revenue
-import delimited "imf_govt_finance_statistics/GFSR_09-15-2021 14-54-37-77_panel.csv", clear
-
-
-// IMF Global Finance Statistics - Expenditure
-import delimited "imf_govt_finance_statistics/GFSE_09-15-2021 14-57-09-03_panel.csv", clear
-
-import delimited "imf_govt_finance_statistics/GFSR_09-11-2021 22-01-01-95_timeSeries.csv", clear
-
-
-
-
-import delimited "imf_govt_finance_statistics/GFSR_09-11-2021 22-01-01-95_timeSeries.csv", clear
-keep if classificationname == "Revenue"
-keep if sectorname == "Central government (incl. social security funds)"
-keep if unitname == "Percent of GDP" &  attribute == "Value"
-keep countrycode v*
-foreach i of varlist v* {
-	loc lab: variable label `i'
-	loc lab = "x" + "`lab'"
-	rename `i' `lab'
-}
-reshape x, i(countrycode) j(country)
-
-
-
-
-
-
-
-br
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 // FTSE, NIKKEI, and S&P (Baker, Bloom, & Terry) ----------------------------
 // https://sites.google.com/site/srbaker/academic-work
@@ -904,27 +847,27 @@ label variable gov_exp_TOT "Gov exp: TOTAL"
 // IMF government expenditure variables:
 label variable fm_gov_exp "Government expenditures (% of GDP) (IMF Fiscal Monitor)"
 label variable fm_gov_rev "Government revenue (% of GDP) (IMF Fiscal Monitor)"
-label variable gov_expense "General budgetary government expense (% of GDP) (IMF GFS)"
-label variable gov_revenue "General budgetary government revenue (% of GDP) (IMF GFS)"
+label variable gfs_gov_exp "General budgetary government expense (% of GDP) (IMF GFS)"
+label variable gfs_gov_rev "General budgetary government revenue (% of GDP) (IMF GFS)"
 
 save "final_labor_growth.dta", replace
 
-graph matrix rev_inc_sc fm_gov_rev gov_revenue if gov_revenue < 200, half
+graph matrix rev_inc_sc fm_gov_rev gfs_gov_rev if gfs_gov_rev < 200, half
 graph export "s_plot_matrix_gov_rev.png", width(400) height(400) replace
-graph matrix fm_gov_exp gov_expense if gov_expense < 200, half
+graph matrix fm_gov_exp gfs_gov_exp if gfs_gov_exp < 200, half
 graph export "s_plot_matrix_gov_exp.png", width(400) height(400) replace
-graph matrix rev_inc_sc fm_gov_rev gov_revenue fm_gov_exp gov_expense if gov_expense < 200 & gov_revenue<200, half
+graph matrix rev_inc_sc fm_gov_rev gfs_gov_rev fm_gov_exp gfs_gov_exp if gfs_gov_exp < 200 & gfs_gov_rev<200, half
 graph export "s_plot_matrix_gov_exp_rev.png", width(400) height(400) replace
 graph close
 
 // we have outliers with ecuador and congo kinsasha
-br gov_expense gov_revenue iso3c year if (gov_expense>2000 & gov_expense != .) | (gov_revenue>2000 & gov_revenue!=.)
-keep iso3c year rev_inc_sc fm_gov_rev gov_revenue fm_gov_exp gov_expense
+br gfs_gov_exp gfs_gov_rev iso3c year if (gfs_gov_exp>2000 & gfs_gov_exp != .) | (gfs_gov_rev>2000 & gfs_gov_rev!=.)
+keep iso3c year rev_inc_sc fm_gov_rev gfs_gov_rev fm_gov_exp gfs_gov_exp
 drop if year > 2020
 // which revenue variable is less empty?
-mdesc rev_inc_sc fm_gov_rev gov_revenue 
+mdesc rev_inc_sc fm_gov_rev gfs_gov_rev 
 // which expense variable is less empty?
-mdesc fm_gov_exp gov_expense
+mdesc fm_gov_exp gfs_gov_exp
 
 // Checks --------------------------------------------------------------------
 use "final_labor_growth.dta", clear
