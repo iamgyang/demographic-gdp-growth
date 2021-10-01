@@ -144,63 +144,32 @@ foreach exp_or_rev in rgdp_pwt fm_gov_exp rev_inc_sc l1avgret flp lp {
 		rename `i' ave`i'
 	}
 	reshape long ave, i(iso3c year) j(period, string)
-
 	replace period = "Negative" if period == "aveP1_`exp_or_rev'"
 	replace period = "Positive" if period == "aveP1_`exp_or_rev'_bef"
-
 	rename ave ave_growth
 	collapse (mean) ave_growth, by(period)
-	replace ave_growth=round(ave_growth, 0.001)
-
-	local rev_exp_label = cond("`exp_or_rev'" == "fm_gov_exp" , "Expenditure", "Revenue")
-
-	bar_graph_ave_growth_rate `"`rev_exp_label' growth rate during periods of" "negative and positive labor force growth" "(5 year annual average)"'
-	graph export "bar_`rev_exp_label'_growth_neg_labor_growth.png", replace
+	replace ave_growth = round(ave_growth, 0.0001) * 100
+	
+	
+	bar_graph_ave_growth_rate `"`lab'" "growth rate (%) during periods of" "negative and positive labor force growth" "(5 year annual average)"' ///
+	`"`war_var' War" "`LMIC_var' LICs & LMICs"' ///
+	`"N = `num_countries' country years"'
+	graph export "bar_`exp_or_rev'_growth_neg_labor_growth_war-`war_var'_lmic-`LMIC_var'.png", width(2600) height(1720) replace
 	graph close
+	
+	// append this to our table:
+	gen variable = "`lab'"
+	gen LMIC_var = "`LMIC_var'"
+	gen war_var = "`war_var'"
+	gen num_country_years = `num_countries'
+	
+	append using `avg_growth'
+	save `avg_growth', replace
+}
+}
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+use `avg_growth'
 
 
 
