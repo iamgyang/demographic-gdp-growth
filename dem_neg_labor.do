@@ -429,22 +429,22 @@ if ("$check" == "yes") {
 // drop country
 rename (time) (year)
 
-save "un_pop_with_HIC_LIC.dta", replace
-
+sort iso3c year
 save "un_pop_estimates_cleaned.dta", replace
 
 // PWT GDP (growth rates) -----------------------------------------------------
-{
+
 use "pwt100.dta", clear
 keep rgdpna countrycode year
 drop if rgdpna == .
 rename (rgdpna countrycode) (rgdp_pwt iso3c)	
-}
+
+sort iso3c year
 save "pwt_cleaned.dta", replace
 
 // Gov't revenue and deficit levels -----------------------------------------
 // https://stats.oecd.org/Index.aspx?DataSetCode=RS_AFR
-{
+
 program clean_oecd
 	args indicator_ measure_ tempfilename_ variable_
 	keep if indicator == "`indicator_'"
@@ -484,17 +484,31 @@ keep cou year value
 rename (cou value) (iso3c gov_tax_rev_pc_gdp)
 check_dup_id "iso3c year"
 drop if inlist(iso3c, "419", "AFRIC", "OAVG")
-}
+
+sort iso3c year
 save "oecd_tax_revenue.dta", replace
 
 // Govt revenues ------------------------------------------------------------
-{
+
 use "government_revenue_dataset/grd_Merged.dta", clear
 egen caution_GRD = rowtotal(caution1accuracyqualityorco caution2resourcerevenuestax caution3unexcludedresourcere caution4inconsistencieswiths)
 keep iso country year caution_GRD rev_inc_sc tot_res_rev tax_inc_sc
 rename iso iso3c
+replace iso3c = "XKX" if country == "Kosovo"
+replace iso3c = "PSE" if country == "West Bank and Gaza"
+
+// make sure iso3c codes are the same:
+preserve
+keep iso3c country
+rename iso3c iso3c_2
+duplicates drop
+conv_ccode "country"
+naomit
+assert iso == iso3c_2
+restore
+
+sort iso3c year
 save "clean_grd.dta", replace
-}
 
 // Govt deficits ------------------------------------------------------------
 
@@ -523,8 +537,8 @@ check_dup_id "iso countrycode year"
 check_dup_id "iso year"
 check_dup_id "countrycode year"
 rename iso iso3c
-tempfile imf_FM
 rename (expenditureofgdpg_x_g01_gdp_pt revenueofgdpggr_g01_gdp_pt) (fm_gov_exp fm_gov_rev)
+sort iso3c year
 save "IMF_FM.dta", replace
 
 // cleans the files from IMF timseries of GFS ------------------------------
@@ -597,8 +611,10 @@ program imf_clean_timeseries_GFS
 	check_dup_id "iso countrycode year"
 	check_dup_id "iso year"
 	check_dup_id "countrycode year"
-
+	
 	rename iso iso3c
+	sort iso3c year
+	
 end
 
 // IMF Global Finance Statistics - Revenue & Expense -----------------------
@@ -613,7 +629,7 @@ save "IMF_GFS_revenue.dta", replace
 // FTSE, NIKKEI, and S&P (Baker, Bloom, & Terry) ----------------------------
 // https://sites.google.com/site/srbaker/academic-work
 // Importantly, Baker, Bloom, & Terry data is normalized to have SD = 1
-{
+
 use "baker_bloom_terry_panel_data.dta", clear
 keep country yq l1lavgvol l1avgret
 sort country yq
@@ -621,14 +637,14 @@ gen keep_indic = mod(yq, 1)
 keep if keep_indic == 0
 drop keep_indic
 rename (country yq) (iso3c year)	
-}
+sort iso3c year
 save "cleaned_baker_bloom_terry_panel_data.dta", replace
 
-// Correllates of war -------------------------------------------------------
+// Correllates of War -------------------------------------------------------
 // make sure that we have 1 country-year after the merge
-{
+
 // get the country codes ----------
-import delimited system2016.csv, clear
+import delimited "system2016.csv", clear
 keep stateabb ccode
 duplicates drop
 sort ccode
@@ -638,6 +654,7 @@ drop ccodel1
 save "cor_war_(cow)_codes.dta", replace
 
 // define program to load each correllates of war dataset:
+quietly capture program drop clean_cow
 program clean_cow
 	args file_name_ vars_keep_
 	
@@ -833,13 +850,146 @@ replace war = 0 if type == ""
 replace war = 1 if _merge == 3
 drop if year > 2007
 keep iso3c year war
+
+sort iso3c year
+save "finalized_war.dta", replace
+
+// Fertility -----------------------------------------------------------------
+
+import delimited "un_wpp/WPP2019_Period_Indicators_Medium.csv", clear
+keep if variant == "Medium"
+keep location midperiod tfr
+gen year = 5 * floor(midperiod/5) 
+drop midperiod
+
+// convert ISO codes
+conv_ccode "location"
+rename iso iso3c
+conv_ccode_un "location"
+drop location
+check_dup_id "iso3c year"
+naomit
+
+save "UN_fertility.dta", replace
+
+// Female labor force participation rate ------------------------------------
+
+// ILO modeled estimates of Female and total labor force participation rate:
+clear
+wbopendata, clear nometadata long indicator(SL.TLF.CACT.FE.ZS; SL.TLF.CACT.ZS) year(1950:2021)
+drop if regionname == "Aggregates"
+keep countrycode year sl_tlf_cact_fe_zs sl_tlf_cact_zs
+rename (countrycode sl_tlf_cact_fe_zs sl_tlf_cact_zs) (iso3c flp lp)
+fillin iso3c year
+drop _fillin
+sort iso3c year
+naomit
+sort iso3c year
+tempfile flp_ilo
+save `flp_ilo'
+
+// female labor force participation from OECD and Long, downloaded from OWID:
+// https://ourworldindata.org/female-labor-supply?preview_id=13372&preview_nonce=6d1f899c93&_thumbnail_id=-1&preview=true#female-participation-in-labor-markets-grew-remarkably-in-the-20th-century
+// first chart: Female participation in labor markets grew remarkably in the 20th century
+
+import delimited "female-labor-force-participation-OECD-Long.csv", clear
+rename code iso3c
+rename femalelaborforceparticipationrat flp2
+
+preserve
+conv_ccode "entity"
+keep iso3c iso
+duplicates drop
+naomit
+assert iso3c == iso
+restore
+
+sort iso3c year
+tempfile flp_oecd_long
+save `flp_oecd_long'
+
+clear
+use `flp_oecd_long'
+fillin iso3c year
+drop _fillin
+
+// merge both
+mmerge iso3c year using `flp_ilo'
+
+// check that entity and iso3c match and are not duplicated
+preserve
+keep entity iso3c
+naomit
+duplicates drop
+conv_ccode entity
+naomit
+assert iso3c == iso
+check_dup_id "entity"
+check_dup_id "iso3c"
+check_dup_id "iso"
+restore
+
+keep iso3c year *lp flp2
+drop if missing(iso3c)
+
+// splice together the female laborforce participation ILO data with the 
+// actual estimates by OECD and Long using growth method
+
+// indicator for missing:
+gen indic = missing(flp2)
+sort iso3c year
+by iso3c: egen earliest_present = min(year) if !missing(flp2)
+bysort iso3c: fillmissing earliest_present
+sort iso3c year
+by iso3c: egen latest_present = max(year) if !missing(flp2)
+bysort iso3c: fillmissing latest_present
+gen indic_to_fill_gr = year < earliest_present | year > latest_present
+
+// loop arbitrarily through 50 times, and fill with growth:
+forval i = 0/50 {
+sort iso3c year
+// cast backwards
+gen flp2_new = flp2[_n+1] * flp / flp[_n+1] if iso3c==iso3c[_n+1]
+replace flp2 = flp2_new if (missing(flp2) & indic_to_fill_gr == 1)
+drop flp2_new*
+// cast forward
+gen flp2_new = flp2[_n-1] * flp / flp[_n-1] if iso3c==iso3c[_n-1]
+replace flp2 = flp2_new if (missing(flp2) & indic_to_fill_gr == 1)
+drop flp2_new*
 }
 
-save "finalized_war.dta", replace
-use "finalized_war.dta", clear
+// then, if ALL the variables are missing, just replace female labor force 
+// participation with the new modeled estimate from ILO
+check_dup_id "iso3c year"
+sort iso3c year
+gen indic_after_gr = missing(flp2)
+by iso3c: egen tot_missing = sum(indic_after_gr)
+by iso3c: gen tot = _N
+gen missing_ratio = tot_missing / tot
+replace flp2 = flp if missing_ratio == 1
+
+// make sure for the variables that you DID fill in, that the ratio of the
+// reference dataset (modeled ILO values) is the SAME as the ratios of 
+// consecutive filled in variables.
+sort iso3c year
+
+preserve
+gen check_ratio_1 = flp/flp[_n-1] if iso3c == iso3c[_n-1]
+gen check_ratio_2 = flp2/flp2[_n-1] if iso3c == iso3c[_n-1]
+keep if indic == 1
+keep iso3c year check_ratio_1 check_ratio_2
+naomit
+assert abs(check_ratio_1 - check_ratio_2)<0.0001
+restore
+
+drop indic_after_gr tot_missing tot missing_ratio indic earliest_present ///
+latest_present indic_to_fill_gr flp
+rename flp2 flp
+
+save "flp.dta", replace
 
 // Merge all together --------------------------------------------------------
-{
+
 clear
 input str40 datasets
 	"historical_wb_income_classifications.dta"
@@ -854,11 +1004,13 @@ input str40 datasets
 	"un_pop_estimates_cleaned.dta"
 	"cleaned_baker_bloom_terry_panel_data.dta"
 	"finalized_war.dta"
+	"UCDP_geography_deaths.dta"
+	"UN_fertility.dta"
+	"flp.dta"
 end
 levelsof datasets, local(datasets)
-clear
 
-use "pwt_cleaned.dta"
+use "pwt_cleaned.dta", clear
 
 foreach i in `datasets' {
 	di "`i'"
@@ -868,26 +1020,34 @@ foreach i in `datasets' {
 
 check_dup_id "iso3c year"
 fillin iso3c year
-drop _fillin
-}
+drop _fillin country
 
 // TO DO: is the GRD database / OECD database about CENTRAL gov't or about local / STATE govt's??
 label variable caution_GRD "Caution notes from Global Revenue Database data"
-label variable country "Country"
 label variable gov_deficit_pc_gdp "Government deficit  (% GDP)"
 label variable gov_rev_pc_gdp "Total government revenue (% GDP)"
 label variable gov_tax_rev_pc_gdp "Total government tax revenue (% GDP)"
 label variable income "Historical WB income classificaiton"
 label variable iso3c "ISO3c country code"
-label variable l1avgret "Stock returns (normalized & CPI inflation adjusted); cumulative return over the proceeding four quarters"
+label variable l1avgret "Stock returns (normalized & CPI inflation adjusted); cumul. return in prior 4 quarters"
 label variable l1lavgvol "Stock volatility; average quarterly standard deviations of daily stock returns over previous four quarters"
+label variable rgdp_pwt "GDP, PPP (PWT)"
+
+// Demographics
 label variable poptotal "Total Population"
 label variable popwork "Total Working-Age Population"
+label variable tfr "Total Fertility Rate"
+label variable lp "Total Labor Force Participation (%)"
+label variable flp "Female Labor Force Participation (%)"
+
+// UN GRD
 label variable rev_inc_sc "Government revenue including Social Contributions (UN GRD)"
-label variable rgdp_pwt "GDP, PPP (PWT)"
 label variable tax_inc_sc "Taxes including social contributions (UN GRD)"
 label variable tot_res_rev "Government Total Resource Revenue (UN GRD)"
-label variable war "Country in war"
+
+// War
+label variable est_deaths "Estimated battle deaths in country (geographical location) from war (UCDP)"
+label variable war "Country in war (COW)"
 label variable year "Year"
 
 // OECD government expenditure variables
