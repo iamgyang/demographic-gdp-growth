@@ -46,69 +46,96 @@ log close
 // most recent 10-years where the average labor force did not decline.
 quietly capture program drop bar_graph_ave_growth_rate
 program bar_graph_ave_growth_rate
-args title
+args title subtitle caption
 #delimit ;
-		graph bar (asis) ave_growth, over(period) blabel(bar, size
-		(medium) color(black)) ytitle(Growth Rate) 
-		ytitle(, size(medium)) title("`title'", size(medlarge)) 
-		scheme(s2color) graphregion(margin(medium) fcolor(white) 
-		ifcolor(white) ilcolor(none)) plotregion(margin(medium) fcolor(white) 
-		lcolor(none) ifcolor(white) ilcolor(none)) yscale(noline) ylabel(, nogrid)
+		graph bar (asis) ave_growth, over(period) bar(1, fcolor(dknavy) 
+		fintensity(inten100) lcolor(none)) blabel(bar) ytitle("") yscale(noline) 
+		yline(0, lcolor(none)) ylabel(, labels labsize(small) labcolor(black) 
+		ticks tlcolor(black) nogrid) ymtick(, nolabels noticks nogrid) 
+		title("`title'") subtitle("`subtitle'", position(11) size(small)) 
+		caption("`caption'", size(small) position(5) 
+		fcolor(none) lcolor(none)) scheme(plotplainblind) 
+		graphregion(fcolor(none) ifcolor(none)) 
+		plotregion(fcolor(none) ifcolor(none))
 		;
 #delimit cr
 end
 
-preserve
-	keep if NEG_popwork == "Negative"
-	keep iso3c year aveP2_rgdp_pwt_bef aveP1_rgdp_pwt
-	naomit
-	reshape long ave, i(iso3c year) j(period, string)
-	rename ave ave_growth
-	replace period = "5 yr negative" if period == "P1_rgdp_pwt"
-	replace period = "10 yr positive" if period == "P2_rgdp_pwt_bef"
-	collapse (mean) ave_growth, by(period)
-	replace ave_growth=round(ave_growth, 0.001)
-	bar_graph_ave_growth_rate `"GDP growth rate during periods of" "positive or negative labor force growth"'
-	graph export "bar_GDP_growth_pos_neg_labor_growth.png", replace
-	graph close
-restore
+use "final_derived_labor_growth.dta", clear
+keep if NEG_popwork == "Negative"
+keep iso3c year aveP2_rgdp_pwt_bef aveP1_rgdp_pwt
+naomit
+summ iso3c year
+local num_countries "`r(N)'"
+reshape long ave, i(iso3c year) j(period, string)
+rename ave ave_growth
+replace period = "5 yr negative" if period == "P1_rgdp_pwt"
+replace period = "10 yr positive" if period == "P2_rgdp_pwt_bef"
+collapse (mean) ave_growth, by(period)
+replace ave_growth=round(ave_growth, 0.001)*100
+bar_graph_ave_growth_rate `"GDP growth rate (%) during periods of" "positive or negative labor force growth"' `""' `"N = `num_countries' country years"'
+graph export "bar_GDP_growth_pos_neg_labor_growth.png", width(2600) height(1720) replace
+graph close
 
 // What were economic growth rates during those five year periods compared to 
 // the global (and country income group) average growth?
-bysort income year: egen income_aveP1_rgdp_pwt=mean(aveP1_rgdp_pwt)
-bysort        year: egen global_aveP1_rgdp_pwt=mean(aveP1_rgdp_pwt)
-preserve
-	keep if NEG_popwork == "Negative"
-	keep iso3c year income aveP1_rgdp_pwt income_aveP1_rgdp_pwt global_aveP1_rgdp_pwt
-	naomit
-	rename (aveP1_rgdp_pwt income_aveP1_rgdp_pwt global_aveP1_rgdp_pwt) (aveP1_rgdp_pwt ave_income_aveP1_rgdp_pwt ave_global_aveP1_rgdp_pwt)
-	drop income
-	reshape long ave, i(iso3c year) j(period, string)
-	replace period = "5 yr negative" if period == "P1_rgdp_pwt"
-	replace period = "Global" if period == "_global_aveP1_rgdp_pwt"
-	replace period = "Income-group" if period == "_income_aveP1_rgdp_pwt"
-	rename ave ave_growth
-	collapse (mean) ave_growth, by(period)
-	replace ave_growth=round(ave_growth, 0.001)
-	bar_graph_ave_growth_rate `"GDP growth rate during periods of" "negative labor force growth" "(vs. global and income-group average)"'
-	graph export "bar_GDP_growth_neg_labor_growth_income_world.png", replace
-	graph close
-restore
+
+use "final_derived_labor_growth.dta", clear
+keep if NEG_popwork == "Negative"
+keep iso3c year income aveP1_rgdp_pwt income_aveP1_rgdp_pwt global_aveP1_rgdp_pwt
+naomit
+summ iso3c year
+local num_countries "`r(N)'"
+rename (aveP1_rgdp_pwt income_aveP1_rgdp_pwt global_aveP1_rgdp_pwt) (aveP1_rgdp_pwt ave_income_aveP1_rgdp_pwt ave_global_aveP1_rgdp_pwt)
+drop income
+reshape long ave, i(iso3c year) j(period, string)
+replace period = "5 yr negative" if period == "P1_rgdp_pwt"
+replace period = "Global" if period == "_global_aveP1_rgdp_pwt"
+replace period = "Income-group" if period == "_income_aveP1_rgdp_pwt"
+rename ave ave_growth
+collapse (mean) ave_growth, by(period)
+replace ave_growth=round(ave_growth, 0.001)*100
+bar_graph_ave_growth_rate `"GDP growth rate (%) during periods of" "negative labor force growth" "(vs. global and income-group average)"' `""' `"N = `num_countries' country years"'
+graph export "bar_GDP_growth_neg_labor_growth_income_world.png", width(2600) height(1720) replace
+graph close
 
 // What happened to government revenues and deficits during those periods 
 // compared to prior? ---------------------------------------------------------
 
-foreach exp_or_rev in fm_gov_exp rev_inc_sc {
-	use "final_labor_growth_w_derived_variables.dta", clear
-	
-	keep if NEG_popwork == "Negative"
-	// !!!!!!!!!!
-	// WHY are we missing so much data here?
-// 	local exp_or_rev fm_gov_exp
-	keep iso3c year aveP1_`exp_or_rev' aveP1_`exp_or_rev'_bef NEG_popwork
-	
-	naomit
+tempfile avg_growth
+clear
+capture log close
+set obs 1 
+gen ave_growth = 99999999
+gen variable = "NA"
+gen LMIC_var = "NA"
+gen war_var = "NA"
+gen num_country_years = 99999999
+save `avg_growth', replace
+clear
 
+foreach LMIC_var in "Excluding" "Including" {
+foreach war_var in "Including" "Excluding" {
+foreach exp_or_rev in rgdp_pwt fm_gov_exp rev_inc_sc l1avgret flp lp {
+
+	use "final_derived_labor_growth.dta", clear
+	if ("`war_var'" == "Excluding") {
+		drop if missing(est_deaths) & missing(war)
+		drop if est_deaths >= 30 | war == 1
+	}
+	if ("`LMIC_var'" == "Excluding") {
+		drop if missing(income)
+		drop if income == "LIC" | income == "LMIC"
+	}
+	
+	label variable l1avgret "Stock returns (normalized, inflation adjusted)"
+	loc lab: variable label `exp_or_rev'
+	keep if NEG_popwork == "Negative"
+	drop NEG_popwork
+	keep iso3c year aveP1_`exp_or_rev' aveP1_`exp_or_rev'_bef
+	naomit
+	summ iso3c year
+	local num_countries "`r(N)'"
 	ds
 	local varlist `r(varlist)'
 	local excluded iso3c year
