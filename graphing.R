@@ -104,7 +104,7 @@ ggsave("Working Age Population China India Line.png", plot, width = 9, height = 
 
 # Percent of world's population with absolute number of workers expected to decline --------
 
-df <- rio::import("final_labor_growth_w_derived_variables.dta") %>% dfdt()
+df <- rio::import("final_derived_labor_growth.dta") %>% dfdt()
 df[,count:=ifelse(aveP1_popwork<0, 1, 0)]
 df <- df[,.(poptotal, count, iso3c, year)]
 df <- df[,.(poptotal = sum(poptotal, na.rm = T)),by = .(count, year)]
@@ -131,6 +131,35 @@ ggsave("Number of Population Growth and Decline Line.png", plot, width = 9, heig
 
 
 
+#  one concern about the use of fertility as an IV for number of workers 20-65 is 
+#  that it doesn't include immigrants *into* a country
+#  what does the literature say about growth regressions of this sort?
+
+#  --------------------
+#  When did they happen (just a histogram by five year period)? How large the percentage drop in workers (*median* size by five year period)
+
+df <- rio::import("final_derived_labor_growth.dta") %>% dfdt()
+
+
+
+#  What were economic growth rates during those five year periods compared to the (last) (ten year?) period before labor force growth was negative?
+# 
+#  What were economic growth rates during those five year periods compared to the global (and country income group) average growth?
+#  ---------------------------------------------
+# 
+#  What happened to government revenues and deficits during those periods compared to prior?
+# 
+#  What happened to interest rates and stock market returns?
+# 
+#  What happened to the unemployment rate total labor force participation and female labor force participation?
+# 
+#  Take out cases which overlap with a country being at war (https:# correlatesofwar.org/data-sets) and then take out low and lower middle income countries and see if that makes a difference.
+# 
+#  Look forward: according to the UN population forecasts, how many countries in each forthcoming five year period will see declining working age population? How large the percentage drop in workers (*median* size by five year period)
+# 
+#  "instrument' or just use the predicted change in working age population from ten years prior (e.g. us value for population aged 10-54 in 1980 as the value for population aged 20-64 in 1990) and/or try 20 year lag.
+# 
+#  Thanks!
 
 
 
