@@ -1069,71 +1069,119 @@ label variable fm_gov_rev "Government revenue (% of GDP) (IMF Fiscal Monitor)"
 label variable gfs_gov_exp "General budgetary government expense (% of GDP) (IMF GFS)"
 label variable gfs_gov_rev "General budgetary government revenue (% of GDP) (IMF GFS)"
 
-save "final_labor_growth.dta", replace
-
-graph matrix rev_inc_sc fm_gov_rev gfs_gov_rev if gfs_gov_rev < 200, half
-graph export "s_plot_matrix_gov_rev.png", width(400) height(400) replace
-graph matrix fm_gov_exp gfs_gov_exp if gfs_gov_exp < 200, half
-graph export "s_plot_matrix_gov_exp.png", width(400) height(400) replace
-graph matrix rev_inc_sc fm_gov_rev gfs_gov_rev fm_gov_exp gfs_gov_exp if gfs_gov_exp < 200 & gfs_gov_rev<200, half
-graph export "s_plot_matrix_gov_exp_rev.png", width(400) height(400) replace
-graph close
-
-// we have outliers with ecuador and congo kinsasha
-br gfs_gov_exp gfs_gov_rev iso3c year if (gfs_gov_exp>2000 & gfs_gov_exp != .) | (gfs_gov_rev>2000 & gfs_gov_rev!=.)
-keep iso3c year rev_inc_sc fm_gov_rev gfs_gov_rev fm_gov_exp gfs_gov_exp
-drop if year > 2020
-// which revenue variable is less empty?
-mdesc rev_inc_sc fm_gov_rev gfs_gov_rev 
-// which expense variable is less empty?
-mdesc fm_gov_exp gfs_gov_exp
-
 // Checks --------------------------------------------------------------------
-use "final_labor_growth.dta", clear
-drop war
-foreach i of varlist _all {
-	gen miss_`i' = missing(`i')
+
+// no duplicates
+check_dup_id "iso3c year"
+
+// US population should be what I expect it to be
+preserve
+keep if iso3c == "USA" & year == 2019
+assert poptotal < 340*(10^6)
+assert poptotal > 320*(10^6)
+
+// US GDP should be around what I expect it to be (if it's in billions):
+assert rgdp_pwt > 20*(10^6)
+assert rgdp_pwt < 22*(10^6)
+restore
+
+// countrycode and iso3c should be the same:
+preserve
+keep iso3c countrycode
+duplicates drop
+naomit
+check_dup_id "iso3c"
+check_dup_id "countrycode"
+restore
+
+// Kosovo shouldn't be messed up
+assert iso3c != "KSV"
+
+save "final_raw_labor_growth.dta", replace
+
+// Derived variables -------------------------------------------------------
+
+use "final_raw_labor_growth.dta", clear
+
+// Restrict population to 5 year chunks
+gen year_mod = mod(year, 5)
+keep if year_mod == 0
+drop year_mod
+
+// Take a lag of that sum & find the percent change in population.
+fillin iso3c year
+sort iso3c year
+drop _fillin
+foreach i in rgdp_pwt popwork rev_inc_sc fm_gov_exp l1avgret flp lp gov_deficit_pc_gdp gov_exp_TOT {
+	loc lab: variable label `i'
+	foreach num of numlist 1/2 {
+		local yr = cond(`num' == 1 , 5, 10)
+		// lag population and real GDP
+			gen L`num'_`i' = `i'[_n-`num'] if iso3c == iso3c[_n-`num']
+			label variable L`num'_`i' "Lag `yr'yr `lab'"
+		// percent change in population & real GDP by 5-yr and 10-yr periods
+			gen P`num'_`i' = (`i' / L`num'_`i') - 1
+			label variable P`num'_`i' "`yr'yr % Change in `lab'"
+		// average percent change in population & real GDP by 5-yr and 10-yr periods
+			gen aveP`num'_`i' = (`i' / L`num'_`i')^(1/`yr') - 1
+			label variable aveP`num'_`i' "Average Annual `yr'yr % Change in `lab'"
+	}
 }
-#delimit ;
-		egen miss = rowtotal(miss_iso3c miss_year miss_rgdp_pwt miss_l1lavgvol
-		miss_l1avgret miss_income miss_gov_deficit_pc_gdp miss_gov_exp_DEF
-		miss_gov_exp_ECOAFF miss_gov_exp_EDU miss_gov_exp_ENVPROT
-		miss_gov_exp_GRALPUBSER miss_gov_exp_HEALTH miss_gov_exp_HOUCOMM
-		miss_gov_exp_PUBORD miss_gov_exp_RECULTREL miss_gov_exp_SOCPROT
-		miss_gov_exp_TOT miss_gov_rev_pc_gdp miss_gov_tax_rev_pc_gdp)
-		;
-#delimit cr
-drop if miss == 18
-drop miss*
+
+// Tag whether the average percent change in real GDP growth is negative.
+foreach i in rgdp_pwt popwork rev_inc_sc fm_gov_exp l1avgret flp lp gov_deficit_pc_gdp gov_exp_TOT {
+	loc lab: variable label `i'
+	gen NEG_`i' = "Negative" if aveP1_`i' < 0
+	replace NEG_`i' = "Positive" if aveP1_`i' >= 0 & aveP1_`i'!=.
+	label variable NEG_`i' "Is the average 5yr % change in `lab' negative?"
+}
+
+// What were economic growth rates during those five year periods with negative
+// population growth rates compared to the (last) (ten year?) period before
+// labor force growth was negative?
+//
+// This generates a new variable that is equal to the average 10-year growth
+// rate if the average 10-year growth rate was positive. Then,
+// it fills downwards this variable and LAGs it. Next, we want this variable
+// (the average 10-year growth rate) ONLY if the average five year growth rate
+// within the past five years was negative. So, finally, it replaces the
+// average lag 10-year growth rate by a missing value if the average five-year
+// growth rate is positive or absent (not negative).
+foreach i in rgdp_pwt rev_inc_sc fm_gov_exp l1avgret flp lp gov_deficit_pc_gdp gov_exp_TOT {
+	loc lab: variable label `i'
+	foreach num of numlist 1/2 {
+		local yr = cond(`num' == 1 , 5, 10)
+		gen aveP`num'_`i'_bef = aveP`num'_`i' if aveP`num'_popwork >= 0
+		sort iso3c year
+		by iso3c: fillmissing aveP`num'_`i'_bef, with(previous)
+		gen aveP`num'_`i'_bef2 = aveP`num'_`i'_bef[_n-1] if iso3c == iso3c[_n-1]
+		drop aveP`num'_`i'_bef
+		rename aveP`num'_`i'_bef2 aveP`num'_`i'_bef
+		replace aveP`num'_`i'_bef = . if NEG_popwork != "Negative"
+		label variable aveP`num'_`i'_bef "Avg ann gr, `lab', `yr'yr priod b/f neg labor gr"
+	}
+}
+
+// What were economic growth rates during those five year periods compared to 
+// the global (and country income group) average growth?
+bysort income year: egen income_aveP1_rgdp_pwt=mean(aveP1_rgdp_pwt)
+bysort        year: egen global_aveP1_rgdp_pwt=mean(aveP1_rgdp_pwt)
+
+save "final_derived_labor_growth.dta", replace
 
 
 
 
-// keep fertility rates
 
 
 
 // to do --------
-// get historical income groups
-// label variables appropriately
 // create the dataset BEFORE you start whittling it down for the graphs (do the lag vars for unemployment, govt rev, etc. as well)
-
-
-// Just check the Yemen bit again? Is it fixed now?
-// Take a look at the start dates for the COW datasets (?) -- doesn't matter because 
-// it's so long.
-// grab fertility data
 
 // perhaps we want to include some of the shocks in the baker bloom paper?
 // add **checks** at the end
 // take a look at the labor - growth relationship in the literature?
 
-
-// TODO: finish appending and merging this
-// ?????? TODO: ask Charles what to do about NON-state war? --> don't have country codes
-// --------------------
-// confirm that dyadic war can REPLACE interstate war?
-// --------------------
 // one concern about the use of fertility as an IV for number of workers 20-65 is 
 // that it doesn't include immigrants *into* a country
 // --------------------
