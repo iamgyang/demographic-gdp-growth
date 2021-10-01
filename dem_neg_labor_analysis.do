@@ -1,107 +1,44 @@
 // Analysis -------------------
-use "final_labor_growth.dta", clear
-
-// Restrict population to 5 year chunks
-gen year_mod = mod(year, 5)
-keep if year_mod == 0
-drop year_mod
-
-// Take a lag of that sum & find the percent change in population.
-fillin iso3c year
-sort iso3c year
-drop _fillin
-foreach i in rgdp_pwt popwork rev_inc_sc fm_gov_exp gov_deficit_pc_gdp gov_exp_TOT {
-	loc lab: variable label `i'
-	foreach num of numlist 1/2 {
-		local yr = cond(`num' == 1 , 5, 10)
-		// lag population and real GDP
-			gen L`num'_`i' = `i'[_n-`num'] if iso3c == iso3c[_n-`num']
-			label variable L`num'_`i' "Lag `yr'yr `lab'"
-		// percent change in population & real GDP by 5-yr and 10-yr periods
-			gen P`num'_`i' = (`i' / L`num'_`i') - 1
-			label variable P`num'_`i' "`yr'yr % Change in `lab'"
-		// average percent change in population & real GDP by 5-yr and 10-yr periods
-			gen aveP`num'_`i' = (`i' / L`num'_`i')^(1/`yr') - 1
-			label variable aveP`num'_`i' "Average Annual `yr'yr % Change in `lab'"
-	}
-}
-
-// Tag whether the average percent change in real GDP growth is negative.
-foreach i in rgdp_pwt popwork rev_inc_sc fm_gov_exp gov_deficit_pc_gdp gov_exp_TOT {
-	loc lab: variable label `i'
-	gen NEG_`i' = "Negative" if aveP1_`i' < 0
-	replace NEG_`i' = "Positive" if aveP1_`i' >= 0 & aveP1_`i'!=.
-	label variable NEG_`i' "Is the average 5yr % change in `lab' negative?"
-}
 
 // Create a histogram with x axis being the 5 year period
-preserve
-	drop if year >= 2020 | year <= 1950
-	histogram year, percent ytitle(Percent) by(NEG_popwork) discrete
-	graph export "hist_negative_pop_years_5yr_periods.png", replace
-	graph close
+use "final_derived_labor_growth.dta", clear
 
-	keep NEG_popwork year iso3c
-	drop if NEG_popwork	== ""
-	gen neg = 1 if NEG_popwork == "Negative"
-	replace neg = 0  if NEG_popwork == "Positive"
-	gen pos = abs(1-neg)
-	drop NEG_popwork 
-	br if year == 1995 & neg == 1
-	collapse (sum) neg pos, by(year)
+drop if year >= 2020 | year <= 1950
+histogram year, percent ytitle(Percent) by(NEG_popwork) discrete
+graph export "hist_negative_pop_years_5yr_periods.png", width(2600) height(1720) replace
+graph close
 
-	graph bar (asis) neg pos, over(year, label(angle(vertical))) stack
-	graph export "hist_negative_pop_years_5yr_periods.png", replace
-restore
+keep NEG_popwork year iso3c
+drop if NEG_popwork	== ""
+gen neg = 1 if NEG_popwork == "Negative"
+replace neg = 0  if NEG_popwork == "Positive"
+gen pos = abs(1-neg)
+drop NEG_popwork 
+br if year == 1995 & neg == 1
+collapse (sum) neg pos, by(year)
 
-// What were economic growth rates during those five year periods with negative
-// population growth rates compared to the (last) (ten year?) period before
-// labor force growth was negative?
-//
-// This generates a new variable that is equal to the average 10-year growth
-// rate if the average 10-year growth rate was positive. Then,
-// it fills downwards this variable and LAGs it. Next, we want this variable
-// (the average 10-year growth rate) ONLY if the average five year growth rate
-// within the past five years was negative. So, finally, it replaces the
-// average lag 10-year growth rate by a missing value if the average five-year
-// growth rate is positive or absent (not negative).
-foreach i in rgdp_pwt rev_inc_sc fm_gov_exp gov_deficit_pc_gdp gov_exp_TOT {
-	loc lab: variable label `i'
-	foreach num of numlist 1/2 {
-		local yr = cond(`num' == 1 , 5, 10)
-		gen aveP`num'_`i'_bef = aveP`num'_`i' if aveP`num'_popwork >= 0
-		sort iso3c year
-		by iso3c: fillmissing aveP`num'_`i'_bef, with(previous)
-		gen aveP`num'_`i'_bef2 = aveP`num'_`i'_bef[_n-1] if iso3c == iso3c[_n-1]
-		drop aveP`num'_`i'_bef
-		rename aveP`num'_`i'_bef2 aveP`num'_`i'_bef
-		replace aveP`num'_`i'_bef = . if NEG_popwork != "Negative"
-		label variable aveP`num'_`i'_bef "Avg ann gr, `lab', `yr'yr priod b/f neg labor gr"
-	}
-}
-
-// save finalized dataset:
-save "final_labor_growth_w_derived_variables.dta", replace
+graph bar (asis) neg pos, over(year, label(angle(vertical))) stack
+graph export "hist_negative_pop_years_5yr_periods.png", width(2600) height(1720) replace
 
 // Median size of pop growth decline:
-preserve
-	keep if NEG_rgdp_pwt == "Negative"
-	tabstat aveP1_rgdp_pwt, statistics(median) save
-	ret list
-	mat B = r(StatTotal)
 
-	// This is the median average annual negative growth rate across 5 yr period
-	// (countries can have duplicate 5 year periods).
-	capture log close
-	set logtype text
-	log using log_results_labor_growth.txt, replace
-	display c(current_time)
+use "final_derived_labor_growth.dta", clear
+keep if NEG_rgdp_pwt == "Negative"
+tabstat aveP1_rgdp_pwt, statistics(median) save
+ret list
+mat B = r(StatTotal)
 
-	di "median average annual negative growth rate across 5 yr period: " B[1,1]
+// This is the median average annual negative growth rate across 5 yr period
+// (countries can have duplicate 5 year periods).
+capture log close
+set logtype text
+log using log_results_labor_growth.txt, replace
+display c(current_time)
 
-	display c(current_time)
-	log close
-restore
+di "median average annual negative growth rate across 5 yr period: " B[1,1]
+
+display c(current_time)
+log close
 
 // Compare 5-yr period of growth NEGATIVE growth rates to the PREVIOUS 10-yr
 // growth rates (annualized). Create a bar graph that has the average GDP growth
