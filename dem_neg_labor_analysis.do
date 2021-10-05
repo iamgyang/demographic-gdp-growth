@@ -140,7 +140,7 @@ if ($test_run == 1) {
 	use "final_derived_labor_growth.dta", clear
 	if ("`war_var'" == "Excluding") {
 		drop if missing(est_deaths) & missing(war)
-		drop if est_deaths >= 100 | war == 1
+		drop if est_deaths >= 10000
 	}
 	if ("`LMIC_var'" == "Excluding") {
 		drop if missing(income)
