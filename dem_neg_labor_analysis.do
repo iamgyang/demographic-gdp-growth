@@ -102,6 +102,11 @@ graph close
 // What happened to government revenues and deficits during those periods 
 // compared to prior? ---------------------------------------------------------
 
+// set macro: whether we're testing or now
+global test_run 0
+
+// set a dataset that will "contain" the end results (number of 
+// countries, average growth, etc.)
 tempfile avg_growth
 clear
 capture log close
@@ -111,50 +116,75 @@ gen LMIC_var = "NA"
 gen war_var = "NA"
 gen num_country_years = 99999999
 gen var = "NA"
+gen within_country_var = "NA"
 save `avg_growth', replace
 clear
 
+if ($test_run == 1) {
+	pause on
+}
+else if ($test_run == 0) {
+	pause off
+}
+
+foreach within_country_var in "Within" "Between" {
 foreach LMIC_var in "Excluding" "Including" {
 foreach war_var in "Including" "Excluding" {
 foreach var in rgdp_pwt fm_gov_exp rev_inc_sc l1avgret flp lp {
-	
+if ($test_run == 1) {
+	local war_var "Including"
+	local LMIC_var "Including"
+	local var l1avgret
+	local within_country_var "Between"	
+}
 	use "final_derived_labor_growth.dta", clear
 	if ("`war_var'" == "Excluding") {
 		drop if missing(est_deaths) & missing(war)
-		drop if est_deaths >= 30 | war == 1
+		drop if est_deaths >= 100 | war == 1
 	}
 	if ("`LMIC_var'" == "Excluding") {
 		drop if missing(income)
 		drop if income == "LIC" | income == "LMIC"
 	}
-	
 	label variable l1avgret "Stock returns (normalized, inflation adjusted)"
 	loc lab: variable label `var'
-	keep if NEG_popwork == "Negative"
-	drop NEG_popwork
-	keep iso3c year aveP1_`var' aveP1_`var'_bef
-	naomit
-	summ iso3c year
-	local num_countries "`r(N)'"
-	ds
-	local varlist `r(varlist)'
-	local excluded iso3c year
-	local to_gather: list varlist - excluded
-	foreach i in `to_gather' {
-		rename `i' ave`i'
+	if ("`within_country_var'" == "Within") {
+		keep if NEG_popwork == "Negative"
+		
+		keep iso3c year aveP1_`var' aveP1_`var'_bef
+		naomit
+		summ iso3c year
+		pause 1
+		local num_countries "`r(N)'"
+		ds
+		local varlist `r(varlist)'
+		local excluded iso3c year
+		local to_gather: list varlist - excluded
+		foreach i in `to_gather' {
+			rename `i' ave`i'
+		}
+		reshape long ave, i(iso3c year) j(period, string)
+		pause 2
+		replace period = "Negative" if period == "aveP1_`var'"
+		replace period = "Positive" if period == "aveP1_`var'_bef"
+		rename ave ave_growth
 	}
-	reshape long ave, i(iso3c year) j(period, string)
-	replace period = "Negative" if period == "aveP1_`var'"
-	replace period = "Positive" if period == "aveP1_`var'_bef"
-	rename ave ave_growth
+	else if ("`within_country_var'" == "Between") {
+		keep iso3c year aveP1_`var' NEG_popwork
+		naomit
+		rename (aveP1_`var' NEG_popwork) (ave_growth period)
+		pause 1
+		summ iso3c year
+		local num_countries "`r(N)'"
+	}
+	
 	collapse (mean) ave_growth, by(period)
 	replace ave_growth = round(ave_growth, 0.0001) * 100
 	
-	
-	bar_graph_ave_growth_rate `"`lab'" "growth rate (%) during periods of" "negative and positive labor force growth" "(5 year annual average)"' ///
+	bar_graph_ave_growth_rate `"`lab'" "growth rate (%) during periods of" "negative and positive labor force growth" "(1 year annual average)" "`within_country_var' countries"' ///
 	`"`war_var' War" "`LMIC_var' LICs & LMICs"' ///
 	`"N = `num_countries' country years"'
-	graph export "bar_`var'_growth_neg_labor_growth_war-`war_var'_lmic-`LMIC_var'.png", width(2600) height(1720) replace
+	graph export "bar_`var'_growth_neg_labor_growth_war-`war_var'_lmic-`LMIC_var'_within-`within_country_var'.png", width(2600) height(1720) replace
 	graph close
 	
 	// append this to our table:
