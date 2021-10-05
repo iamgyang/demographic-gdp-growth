@@ -1128,27 +1128,58 @@ foreach i in rgdp_pwt popwork rev_inc_sc fm_gov_exp l1avgret flp lp gov_deficit_
 
 // Tag whether the average percent change in real GDP growth is negative.
 foreach i in rgdp_pwt popwork rev_inc_sc fm_gov_exp l1avgret flp lp gov_deficit_pc_gdp gov_exp_TOT {
+	sort iso3c year
 	loc lab: variable label `i'
 	gen NEG_`i' = "Negative" if aveP1_`i' < 0
 	replace NEG_`i' = "Positive" if aveP1_`i' >= 0 & aveP1_`i'!=.
-	label variable NEG_`i' "Is the average 5yr % change in `lab' negative?"
+	label variable NEG_`i' "Is the average 1yr % change in `lab' negative?"
 }
 
-// What were economic growth rates during those five year periods with negative
+// Tag whether there was a 10 year consistent negative growth.
+foreach var in popwork {
+	sort iso3c year
+	loc lab: variable label `var'
+	
+	local var popwork
+	// create differences
+		gen `var'_diff = `var' - `var'[_n-1] if iso3c == iso3c[_n-1]
+			
+	// create lagged differences
+		forval count = 1/10 {
+			sort iso3c year
+				gen `var'_diff_L`count' = `var'_diff[_n-`count'] if iso3c == iso3c[_n-`count']
+				replace `var'_diff_L`count' = 0 if `var'_diff_L`count'>=0 & !missing(`var'_diff_L`count')
+				replace `var'_diff_L`count' = 1 if `var'_diff_L`count'<0 & !missing(`var'_diff_L`count')
+		}
+		
+	// get whether there was 2 years of negative first-differences:
+		egen NEG10_`var' = rowtotal(`var'_diff_L*)
+		replace NEG10_`var' = NEG10_`var'>0
+		forval count = 1/10 {
+			replace NEG10_`var' = . if missing(`var'_diff_L`count')
+		}
+	// drop the variables used to create this:
+		drop `var'_diff*
+	
+	label variable NEG10_`var' "Has `lab' declined for 10 consecutive years?"
+}
+
+// What were economic growth rates during those 1 year periods with negative
 // population growth rates compared to the (last) (ten year?) period before
 // labor force growth was negative?
 //
-// This generates a new variable that is equal to the average 10-year growth
-// rate if the average 10-year growth rate was positive. Then,
+// This generates a new variable that is equal to the average 2 year growth
+// rate if the average 2 year growth rate was positive. Then,
 // it fills downwards this variable and LAGs it. Next, we want this variable
-// (the average 10-year growth rate) ONLY if the average five year growth rate
-// within the past five years was negative. So, finally, it replaces the
-// average lag 10-year growth rate by a missing value if the average five-year
+// (the average 2 year growth rate) ONLY if the average 1 year growth rate
+// within the past 1 years was negative. So, finally, it replaces the
+// average lag 2 year growth rate by a missing value if the average 1 year
 // growth rate is positive or absent (not negative).
 foreach i in rgdp_pwt rev_inc_sc fm_gov_exp l1avgret flp lp gov_deficit_pc_gdp gov_exp_TOT {
+	sort iso3c year
 	loc lab: variable label `i'
 	foreach num of numlist 1/2 {
-		local yr = cond(`num' == 1 , 5, 10)
+		local yr = cond(`num' == 1 , 1, 2)
 		gen aveP`num'_`i'_bef = aveP`num'_`i' if aveP`num'_popwork >= 0
 		sort iso3c year
 		by iso3c: fillmissing aveP`num'_`i'_bef, with(previous)
