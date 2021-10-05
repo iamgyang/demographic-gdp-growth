@@ -193,39 +193,110 @@ if ($test_run == 1) {
 	gen war_var = "`war_var'"
 	gen num_country_years = `num_countries'
 	gen var = "`var'"
+	gen within_country_var = "`within_country_var'"
 	
 	append using `avg_growth'
 	save `avg_growth', replace
 }
 }
 }
+}
 
 use `avg_growth'
 
+save "raw_table_avg_growth.dta", replace
+
+// Output to LATEX -------------------------------------------------------------
+
+// much of the rest of this is aesthetics RE: LATEX
+
+use "raw_table_avg_growth.dta", clear
+
 drop if var == "NA"
-// drop if num_country_years<10
+drop if num_country_years<10
 drop var num_country_years 
 replace period = "neg" if period == "Negative"
 replace period = "pos" if period == "Positive"
+replace within_country_var = "bet" if within_country_var == "Between"
+replace within_country_var = "with" if within_country_var == "Within"
 foreach i in war_var LMIC_var {
 	replace `i' = "exc" if `i' == "Excluding"
 	replace `i' = "inc" if `i' == "Including"	
 }
-replace LMIC_var = "lic_" + LMIC_var + "_war_" + war_var
-drop war_var
+
+// this allows us to reshape the variable later
+replace LMIC_var = "l_" + LMIC_var + "_w_" + war_var + "_c_" + within_country_var
+drop war_var within_country_var
 reshape wide ave_growth, i(period label) j(LMIC_var, string)
 rename ave_growth* *
 
 order label period
 sort label period 
-ssc install texsave
-texsave * using "table1", nonames replace frag headerlines("& \multicolumn{4}{c}{LIC/LMIC}{War} \\" "\cmidrule(lr){2-6}"" & 1950s & 1960s & 1970s &1980s") size(3) width(1\textwidth) title ("Literacy, share with at least five years of schooling and school quality") nofix marker(results_region)
 
+replace period = "+" if period == "pos"
+replace period = "-" if period == "neg"
 
+// being foxy with LATEX: replace percent signs, anything in parenthesis,
+// the words "LFP". make sure that every other row is blank, since we have 
+// 2 observations per variable:
+sort label
+gen count = 1
+bysort label: egen count2 = sum(count)
+assert count2 == 2
+drop count*
+gen n = mod(_n, 2)
+replace label = subinstr(label, "Government", "Gov't",.)
+replace label = subinstr(label, " including Social Contributions", "",.)
+replace label = subinstr(label, "Labor Force Participation", "LFP",.)
 
+// remove all things in parentheses
+replace label = trim(regexr(label , "\((.)+\)", ""))
 
+// merge rows when applicable
+replace label = "\multirow{2}[0]{3cm}{" + label + "}"
+replace label = "" if n == 0
+br
 
+replace n = _n
+egen last_row = max(n)
+replace last_row = last_row - 1
 
+// the top and bottom variables should be slightly different
+replace label = subinstr(label, "\multirow{2}[0]", "\multirow{2}[1]",.) ///
+	if n == last_row | n == 1
+
+// draws a horizontal line in between each variable category
+replace label = "\midrule\\" + label if n != 1 & mod(n, 2) != 0
+replace label = subinstr(label, "%", "\%",.)
+
+drop n last_row
+
+order label period l_exc_w_exc_c_bet l_exc_w_exc_c_with l_exc_w_inc_c_bet l_exc_w_inc_c_with l_inc_w_exc_c_bet l_inc_w_exc_c_with l_inc_w_inc_c_bet l_inc_w_inc_c_with
+
+// output to latex:
+#delimit ;
+texsave * using "table1.txt", 
+nonames replace frag 
+headerlines(
+"& \multicolumn{1}{r}{} & \multicolumn{4}{c}{LIC/LMIC excluded} & \multicolumn{4}{c}{LIC/LMIC included} \\ \cmidrule{3-10}          & \multicolumn{1}{r}{} & \multicolumn{2}{c}{War Excluded} & \multicolumn{2}{c}{War Included} & \multicolumn{2}{c}{War Excluded} & \multicolumn{2}{c}{War Included} \\ \cmidrule{3-10}    \multicolumn{1}{c}{Variable} & \multicolumn{1}{c}{Labor Force}  & \multicolumn{1}{c}{Between} & \multicolumn{1}{c}{Within} & \multicolumn{1}{c}{Between} & \multicolumn{1}{c}{Within} & \multicolumn{1}{c}{Between} & \multicolumn{1}{c}{Within} & \multicolumn{1}{c}{Between} & \multicolumn{1}{c}{Within} \\"
+) 
+size(3) width(1\textwidth)
+title ("Growth (\%) during periods of working age population decline" "vs. periods of working age population growth") 
+nofix 
+marker(results_region) 
+footnote("\textit{Between} compares years with negative and positive working-age population growth across every country. \textit{Within} compares years with negative and positive working-age population growth within the same country. \textit{Within} uses the earliest prior period of positive working-age population growth. ILO estimates are non-modeled national reports. Wars were excluded based on whether there were more than 10,000 battle-related deaths in that geography as reported by Uppsala University UCDP data. Stock returns are normalized and inflation adjusted. Government revenue includes social contributions.")
+;
+#delimit cr
+
+// adjust the TXT output file:
+// adjustments to the base latex file:
+import delimited "table1.txt", clear
+// replace v1 = subinstr(v1, "\end{tabularx}","\end{tabularx}\end{adjustbox}",1) 
+replace v1 = subinstr(v1, "\begin{tabularx}{1\textwidth}{lCCCCCCCCC}", "\begin{tabularx}{1\textwidth}{p{3cm} c X X X X X X X X }",1) 
+// replace v1 = subinstr(v1, "\begin{tabularx}","\begin{adjustbox}{angle=90}\begin{tabularx}",1)
+
+// replace that output file once more:
+outfile using "table1.txt", noquote replace wide
 
 
 
