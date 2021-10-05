@@ -1,11 +1,11 @@
 // Analysis -------------------
 
-// Create a histogram with x axis being the 5 year period
+// Create a histogram with x axis being the 1 year period
 use "final_derived_labor_growth.dta", clear
 
 drop if year >= 2020 | year <= 1950
 histogram year, percent ytitle(Percent) by(NEG_popwork) discrete
-graph export "hist_negative_pop_years_5yr_periods.png", width(2600) height(1720) replace
+graph export "hist_negative_pop_years_1yr_periods.png", width(2600) height(1720) replace
 graph close
 
 keep NEG_popwork year iso3c
@@ -18,7 +18,7 @@ br if year == 1995 & neg == 1
 collapse (sum) neg pos, by(year)
 
 graph bar (asis) neg pos, over(year, label(angle(vertical))) stack
-graph export "hist_negative_pop_years_5yr_periods.png", width(2600) height(1720) replace
+graph export "hist_negative_pop_years_1yr_periods.png", width(2600) height(1720) replace
 
 // Median size of pop growth decline:
 
@@ -28,14 +28,14 @@ tabstat aveP1_rgdp_pwt, statistics(median) save
 ret list
 mat B = r(StatTotal)
 
-// This is the median average annual negative growth rate across 5 yr period
-// (countries can have duplicate 5 year periods).
+// This is the median average annual negative growth rate across 1 yr period
+// (countries can have duplicate 1 year periods).
 capture log close
 set logtype text
 log using log_results_labor_growth.txt, replace
 display c(current_time)
 
-di "median average annual negative growth rate across 5 yr period: " B[1,1]
+di "median average annual negative growth rate across 1 yr period: " B[1,1]
 
 display c(current_time)
 log close
@@ -69,8 +69,8 @@ summ iso3c year
 local num_countries "`r(N)'"
 reshape long ave, i(iso3c year) j(period, string)
 rename ave ave_growth
-replace period = "5 yr negative" if period == "P1_rgdp_pwt"
-replace period = "10 yr positive" if period == "P2_rgdp_pwt_bef"
+replace period = "1 yr negative" if period == "P1_rgdp_pwt"
+replace period = "2 yr positive" if period == "P2_rgdp_pwt_bef"
 collapse (mean) ave_growth, by(period)
 replace ave_growth=round(ave_growth, 0.001)*100
 bar_graph_ave_growth_rate `"GDP growth rate (%) during periods of" "positive or negative labor force growth"' `""' `"N = `num_countries' country years"'
@@ -89,7 +89,7 @@ local num_countries "`r(N)'"
 rename (aveP1_rgdp_pwt income_aveP1_rgdp_pwt global_aveP1_rgdp_pwt) (aveP1_rgdp_pwt ave_income_aveP1_rgdp_pwt ave_global_aveP1_rgdp_pwt)
 drop income
 reshape long ave, i(iso3c year) j(period, string)
-replace period = "5 yr negative" if period == "P1_rgdp_pwt"
+replace period = "1 yr negative" if period == "P1_rgdp_pwt"
 replace period = "Global" if period == "_global_aveP1_rgdp_pwt"
 replace period = "Income-group" if period == "_income_aveP1_rgdp_pwt"
 rename ave ave_growth
