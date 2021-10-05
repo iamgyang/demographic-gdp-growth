@@ -1101,19 +1101,19 @@ save "final_raw_labor_growth.dta", replace
 
 use "final_raw_labor_growth.dta", clear
 
-// Restrict population to 5 year chunks
-gen year_mod = mod(year, 5)
+// Restrict population to 1 year chunks
+gen year_mod = mod(year, 1)
 keep if year_mod == 0
 drop year_mod
 
 // Take a lag of that sum & find the percent change in population.
 fillin iso3c year
-sort iso3c year
 drop _fillin
 foreach i in rgdp_pwt popwork rev_inc_sc fm_gov_exp l1avgret flp lp gov_deficit_pc_gdp gov_exp_TOT {
+	sort iso3c year
 	loc lab: variable label `i'
 	foreach num of numlist 1/2 {
-		local yr = cond(`num' == 1 , 5, 10)
+		local yr = cond(`num' == 1 , 1, 2)
 		// lag population and real GDP
 			gen L`num'_`i' = `i'[_n-`num'] if iso3c == iso3c[_n-`num']
 			label variable L`num'_`i' "Lag `yr'yr `lab'"
@@ -1160,12 +1160,27 @@ foreach i in rgdp_pwt rev_inc_sc fm_gov_exp l1avgret flp lp gov_deficit_pc_gdp g
 	}
 }
 
-// What were economic growth rates during those five year periods compared to 
+// What were economic growth rates during those 1 year periods compared to 
 // the global (and country income group) average growth?
 bysort income year: egen income_aveP1_rgdp_pwt=mean(aveP1_rgdp_pwt)
 bysort        year: egen global_aveP1_rgdp_pwt=mean(aveP1_rgdp_pwt)
 
 save "final_derived_labor_growth.dta", replace
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1191,15 +1206,15 @@ save "final_derived_labor_growth.dta", replace
 //
 // I’m interested in looking at the impact of negative labor force growth on economies.  Pretty simple stuff at least to begin:
 //
-// Using the UN population data, find all five-year periods where countries have experienced an absolute decline in their population aged 20-64. (A brief look suggests there are 203 historical cases at the country level).
+// Using the UN population data, find all 1 year periods where countries have experienced an absolute decline in their population aged 20-64. (A brief look suggests there are 203 historical cases at the country level).
 //
-// When did they happen (just a histogram by five year period)? How large the percentage drop in workers (*median* size by five year period)
+// When did they happen (just a histogram by 1 year period)? How large the percentage drop in workers (*median* size by 1 year period)
 //
-// *median* size by five year period --> what do you mean here? get the median percent worker drop?
+// *median* size by 1 year period --> what do you mean here? get the median percent worker drop?
 //
-// What were economic growth rates during those five year periods compared to the (last) (ten year?) period before labor force growth was negative?
+// What were economic growth rates during those 1 year periods compared to the (last) (ten year?) period before labor force growth was negative?
 //
-// What were economic growth rates during those five year periods compared to the global (and country income group) average growth?
+// What were economic growth rates during those 1 year periods compared to the global (and country income group) average growth?
 // ---------------------------------------------
 //
 // What happened to government revenues and deficits during those periods compared to prior?
@@ -1210,7 +1225,7 @@ save "final_derived_labor_growth.dta", replace
 //
 // Take out cases which overlap with a country being at war (https://correlatesofwar.org/data-sets) and then take out low and lower middle income countries and see if that makes a difference.
 //
-// Look forward: according to the UN population forecasts, how many countries in each forthcoming five year period will see declining working age population? How large the percentage drop in workers (*median* size by five year period)
+// Look forward: according to the UN population forecasts, how many countries in each forthcoming 1 year period will see declining working age population? How large the percentage drop in workers (*median* size by 1 year period)
 //
 // “instrument’ or just use the predicted change in working age population from ten years prior (e.g. us value for population aged 10-54 in 1980 as the value for population aged 20-64 in 1990) and/or try 20 year lag.
 //
