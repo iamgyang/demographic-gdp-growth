@@ -1,5 +1,3 @@
-// !! to do: find out the other variable labels and definitions of the OECD data.
-
 // somehow use this as well?
 // https://www.qogdata.pol.gu.se/search/
 
@@ -641,7 +639,7 @@ sort iso3c year
 save "cleaned_baker_bloom_terry_panel_data.dta", replace
 
 // Correllates of War -------------------------------------------------------
-// make sure that we have 1 country-year after the merge
+// make sure that we have 1 country year after the merge
 
 // get the country codes ----------
 import delimited "system2016.csv", clear
@@ -874,12 +872,12 @@ save "UN_fertility.dta", replace
 
 // Female labor force participation rate ------------------------------------
 
-// ILO modeled estimates of Female and total labor force participation rate:
+// ILO Female and total labor force participation rate:
 clear
-wbopendata, clear nometadata long indicator(SL.TLF.CACT.FE.ZS; SL.TLF.CACT.ZS) year(1950:2021)
+wbopendata, clear nometadata long indicator(SL.TLF.CACT.FE.NE.ZS; SL.TLF.CACT.NE.ZS) year(1950:2021)
 drop if regionname == "Aggregates"
-keep countrycode year sl_tlf_cact_fe_zs sl_tlf_cact_zs
-rename (countrycode sl_tlf_cact_fe_zs sl_tlf_cact_zs) (iso3c flp lp)
+keep countrycode year sl_tlf_cact_fe_ne_zs sl_tlf_cact_ne_zs
+rename (countrycode sl_tlf_cact_fe_ne_zs sl_tlf_cact_ne_zs) (iso3c flp lp)
 fillin iso3c year
 drop _fillin
 sort iso3c year
@@ -888,103 +886,103 @@ sort iso3c year
 tempfile flp_ilo
 save `flp_ilo'
 
-// female labor force participation from OECD and Long, downloaded from OWID:
-// https://ourworldindata.org/female-labor-supply?preview_id=13372&preview_nonce=6d1f899c93&_thumbnail_id=-1&preview=true#female-participation-in-labor-markets-grew-remarkably-in-the-20th-century
-// first chart: Female participation in labor markets grew remarkably in the 20th century
-
-import delimited "female-labor-force-participation-OECD-Long.csv", clear
-rename code iso3c
-rename femalelaborforceparticipationrat flp2
-
-preserve
-conv_ccode "entity"
-keep iso3c iso
-duplicates drop
-naomit
-assert iso3c == iso
-restore
-
-sort iso3c year
-tempfile flp_oecd_long
-save `flp_oecd_long'
-
-clear
-use `flp_oecd_long'
-fillin iso3c year
-drop _fillin
-
-// merge both
-mmerge iso3c year using `flp_ilo'
-
-// check that entity and iso3c match and are not duplicated
-preserve
-keep entity iso3c
-naomit
-duplicates drop
-conv_ccode entity
-naomit
-assert iso3c == iso
-check_dup_id "entity"
-check_dup_id "iso3c"
-check_dup_id "iso"
-restore
-
-keep iso3c year *lp flp2
-drop if missing(iso3c)
-
-// splice together the female laborforce participation ILO data with the 
-// actual estimates by OECD and Long using growth method
-
-// indicator for missing:
-gen indic = missing(flp2)
-sort iso3c year
-by iso3c: egen earliest_present = min(year) if !missing(flp2)
-bysort iso3c: fillmissing earliest_present
-sort iso3c year
-by iso3c: egen latest_present = max(year) if !missing(flp2)
-bysort iso3c: fillmissing latest_present
-gen indic_to_fill_gr = year < earliest_present | year > latest_present
-
-// loop arbitrarily through 50 times, and fill with growth:
-forval i = 0/50 {
-sort iso3c year
-// cast backwards
-gen flp2_new = flp2[_n+1] * flp / flp[_n+1] if iso3c==iso3c[_n+1]
-replace flp2 = flp2_new if (missing(flp2) & indic_to_fill_gr == 1)
-drop flp2_new*
-// cast forward
-gen flp2_new = flp2[_n-1] * flp / flp[_n-1] if iso3c==iso3c[_n-1]
-replace flp2 = flp2_new if (missing(flp2) & indic_to_fill_gr == 1)
-drop flp2_new*
-}
-
-// then, if ALL the variables are missing, just replace female labor force 
-// participation with the new modeled estimate from ILO
-check_dup_id "iso3c year"
-sort iso3c year
-gen indic_after_gr = missing(flp2)
-by iso3c: egen tot_missing = sum(indic_after_gr)
-by iso3c: gen tot = _N
-gen missing_ratio = tot_missing / tot
-replace flp2 = flp if missing_ratio == 1
-
-// make sure for the variables that you DID fill in, that the ratio of the
-// reference dataset (modeled ILO values) is the SAME as the ratios of 
-// consecutive filled in variables.
-sort iso3c year
-
-preserve
-gen check_ratio_1 = flp/flp[_n-1] if iso3c == iso3c[_n-1]
-gen check_ratio_2 = flp2/flp2[_n-1] if iso3c == iso3c[_n-1]
-keep if indic == 1
-keep iso3c year check_ratio_1 check_ratio_2
-naomit
-assert abs(check_ratio_1 - check_ratio_2)<0.0001
-restore
-
-drop indic_after_gr tot_missing tot missing_ratio indic earliest_present ///
-latest_present indic_to_fill_gr flp
-rename flp2 flp
+// // female labor force participation from OECD and Long, downloaded from OWID:
+// // https://ourworldindata.org/female-labor-supply?preview_id=13372&preview_nonce=6d1f899c93&_thumbnail_id=-1&preview=true#female-participation-in-labor-markets-grew-remarkably-in-the-20th-century
+// // first chart: Female participation in labor markets grew remarkably in the 20th century
+//
+// import delimited "female-labor-force-participation-OECD-Long.csv", clear
+// rename code iso3c
+// rename femalelaborforceparticipationrat flp2
+//
+// preserve
+// conv_ccode "entity"
+// keep iso3c iso
+// duplicates drop
+// naomit
+// assert iso3c == iso
+// restore
+//
+// sort iso3c year
+// tempfile flp_oecd_long
+// save `flp_oecd_long'
+//
+// clear
+// use `flp_oecd_long'
+// fillin iso3c year
+// drop _fillin
+//
+// // merge both
+// mmerge iso3c year using `flp_ilo'
+//
+// // check that entity and iso3c match and are not duplicated
+// preserve
+// keep entity iso3c
+// naomit
+// duplicates drop
+// conv_ccode entity
+// naomit
+// assert iso3c == iso
+// check_dup_id "entity"
+// check_dup_id "iso3c"
+// check_dup_id "iso"
+// restore
+//
+// keep iso3c year *lp flp2
+// drop if missing(iso3c)
+//
+// // splice together the female laborforce participation ILO data with the 
+// // actual estimates by OECD and Long using growth method
+//
+// // indicator for missing:
+// gen indic = missing(flp2)
+// sort iso3c year
+// by iso3c: egen earliest_present = min(year) if !missing(flp2)
+// bysort iso3c: fillmissing earliest_present
+// sort iso3c year
+// by iso3c: egen latest_present = max(year) if !missing(flp2)
+// bysort iso3c: fillmissing latest_present
+// gen indic_to_fill_gr = year < earliest_present | year > latest_present
+//
+// // loop arbitrarily through 50 times, and fill with growth:
+// forval i = 0/50 {
+// sort iso3c year
+// // cast backwards
+// gen flp2_new = flp2[_n+1] * flp / flp[_n+1] if iso3c==iso3c[_n+1]
+// replace flp2 = flp2_new if (missing(flp2) & indic_to_fill_gr == 1)
+// drop flp2_new*
+// // cast forward
+// gen flp2_new = flp2[_n-1] * flp / flp[_n-1] if iso3c==iso3c[_n-1]
+// replace flp2 = flp2_new if (missing(flp2) & indic_to_fill_gr == 1)
+// drop flp2_new*
+// }
+//
+// // then, if ALL the variables are missing, just replace female labor force 
+// // participation with the new modeled estimate from ILO
+// check_dup_id "iso3c year"
+// sort iso3c year
+// gen indic_after_gr = missing(flp2)
+// by iso3c: egen tot_missing = sum(indic_after_gr)
+// by iso3c: gen tot = _N
+// gen missing_ratio = tot_missing / tot
+// replace flp2 = flp if missing_ratio == 1
+//
+// // make sure for the variables that you DID fill in, that the ratio of the
+// // reference dataset (modeled ILO values) is the SAME as the ratios of 
+// // consecutive filled in variables.
+// sort iso3c year
+//
+// preserve
+// gen check_ratio_1 = flp/flp[_n-1] if iso3c == iso3c[_n-1]
+// gen check_ratio_2 = flp2/flp2[_n-1] if iso3c == iso3c[_n-1]
+// keep if indic == 1
+// keep iso3c year check_ratio_1 check_ratio_2
+// naomit
+// assert abs(check_ratio_1 - check_ratio_2)<0.0001
+// restore
+//
+// drop indic_after_gr tot_missing tot missing_ratio indic earliest_present ///
+// latest_present indic_to_fill_gr flp
+// rename flp2 flp
 
 save "flp.dta", replace
 
