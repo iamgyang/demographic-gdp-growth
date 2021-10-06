@@ -102,7 +102,7 @@ graph close
 // What happened to government revenues and deficits during those periods 
 // compared to prior? ---------------------------------------------------------
 
-// set macro: whether we're testing or now
+// set macro: whether we're testing or not
 global test_run 0
 
 // set a dataset that will "contain" the end results (number of 
@@ -112,7 +112,7 @@ clear
 capture log close
 set obs 1 
 gen ave_growth = 99999999
-gen LMIC_var = "NA"
+gen income_var = "NA"
 gen war_var = "NA"
 gen num_country_years = 99999999
 gen var = "NA"
@@ -128,26 +128,39 @@ else if ($test_run == 0) {
 }
 
 foreach within_country_var in "Within" "Between" {
-foreach LMIC_var in "Excluding" "Including" {
+foreach income_var in "LIC_LMIC" "UMIC" "HIC" {
 foreach war_var in "Including" "Excluding" {
 foreach var in rgdp_pwt fm_gov_exp rev_inc_sc l1avgret flp lp {
 if ($test_run == 1) {
 	local war_var "Including"
-	local LMIC_var "Including"
+	local income_var "Including"
 	local var l1avgret
 	local within_country_var "Between"	
 }
 	use "final_derived_labor_growth.dta", clear
+	
+	// conditions to narrow the dataset:
 	if ("`war_var'" == "Excluding") {
-		drop if missing(est_deaths) & missing(war)
+		drop if missing(est_deaths)
 		drop if est_deaths >= 10000
 	}
-	if ("`LMIC_var'" == "Excluding") {
+	if ("`income_var'" == "LIC_LMIC") {
 		drop if missing(income)
-		drop if income == "LIC" | income == "LMIC"
+		keep if income == "LIC" | income == "LMIC"
+	}
+	else if ("`income_var'" != "LIC_LMIC") {
+		drop if missing(income)
+		keep if income == "`income_var'"
 	}
 	label variable l1avgret "Stock returns (normalized, inflation adjusted)"
 	loc lab: variable label `var'
+	
+	// Between compares years with negative and positive working-age population 
+	// growth across every country. Within compares years with negative and
+	// positive working-age population growth within the same country. Within uses 
+	// the earliest prior period of positive working-age population growth.
+	// ILO estimates are non-modeled national reports.
+	
 	if ("`within_country_var'" == "Within") {
 		keep if NEG_popwork == "Negative"
 		
@@ -178,25 +191,40 @@ if ($test_run == 1) {
 		local num_countries "`r(N)'"
 	}
 	
-	collapse (mean) ave_growth, by(period)
-	replace ave_growth = round(ave_growth, 0.0001) * 100
+	di "`within_country_var'" "`income_var'" "`war_var'" "`var'"
 	
-	bar_graph_ave_growth_rate `"`lab'" "growth rate (%) during periods of" "negative and positive labor force growth" "(1 year annual average)" "`within_country_var' countries"' ///
-	`"`war_var' War" "`LMIC_var' LICs & LMICs"' ///
-	`"N = `num_countries' country years"'
-	graph export "bar_`var'_growth_neg_labor_growth_war-`war_var'_lmic-`LMIC_var'_within-`within_country_var'.png", width(2600) height(1720) replace
-	graph close
-	
-	// append this to our table:
-	gen label = "`lab'"
-	gen LMIC_var = "`LMIC_var'"
-	gen war_var = "`war_var'"
-	gen num_country_years = `num_countries'
-	gen var = "`var'"
-	gen within_country_var = "`within_country_var'"
-	
-	append using `avg_growth'
-	save `avg_growth', replace
+	// only create graphs and output numbers if there are enough observations.
+	local num_obs `r(N)'
+	if (`num_obs' > 0) {
+		collapse (mean) ave_growth, by(period)
+		replace ave_growth = round(ave_growth, 0.0001) * 100
+		
+	// 	bar_graph_ave_growth_rate `"`lab'" "growth rate (%) during periods of" "negative and positive labor force growth" "(1 year annual average)" "`within_country_var' countries"' ///
+	// 	`"`war_var' War" "`income_var' LICs & LMICs"' ///
+	// 	`"N = `num_countries' country years"'
+	// 	graph export "bar_`var'_growth_neg_labor_growth_war-`war_var'_`income_var'_within-`within_country_var'.png", width(2600) height(1720) replace
+	// 	graph close
+		
+		// append this to our table:
+		gen label = "`lab'"
+		gen income_var = "`income_var'"
+		gen war_var = "`war_var'"
+		gen num_country_years = `num_countries'
+		gen within_country_var = "`within_country_var'"
+		gen var = "`var'"
+		append using `avg_growth'
+		save `avg_growth', replace
+		
+		//// TOOO DOOOOOOOOOOOO!!!!!!!!!!!!!
+		capture macro drop y1 y2 y3 z1 z2		
+		gen label = "`lab'"
+		gen income_var = "`income_var'"
+		gen war_var = "`war_var'"
+		gen num_country_years = `num_countries'
+		gen within_country_var = "`within_country_var'"
+		
+		
+	}
 }
 }
 }
@@ -206,7 +234,7 @@ use `avg_growth'
 
 save "raw_table_avg_growth.dta", replace
 
-// Output to LATEX -------------------------------------------------------------
+// // Output to LATEX -------------------------------------------------------------
 
 // much of the rest of this is aesthetics RE: LATEX
 
@@ -214,27 +242,28 @@ use "raw_table_avg_growth.dta", clear
 
 drop if var == "NA"
 drop if num_country_years<10
-drop var num_country_years 
-replace period = "neg" if period == "Negative"
-replace period = "pos" if period == "Positive"
-replace within_country_var = "bet" if within_country_var == "Between"
-replace within_country_var = "with" if within_country_var == "Within"
-foreach i in war_var LMIC_var {
+gen ave_growth_str = string(ave_growth)
+gen num_country_years_str = string(num_country_years)
+replace ave_growth_str = ave_growth_str + " (" + num_country_years_str + ")"
+drop var num_country_years* ave_growth
+rename ave_growth_str ave_growth
+replace period = "+" if period == "Positive"
+replace period = "-" if period == "Negative"
+foreach i in war_var {
 	replace `i' = "exc" if `i' == "Excluding"
 	replace `i' = "inc" if `i' == "Including"	
 }
 
 // this allows us to reshape the variable later
-replace LMIC_var = "l_" + LMIC_var + "_w_" + war_var + "_c_" + within_country_var
-drop war_var within_country_var
-reshape wide ave_growth, i(period label) j(LMIC_var, string)
+replace income_var = "LL" if income_var == "LIC_LMIC"
+replace income_var = income_var + "_w_" + war_var
+drop war_var
+reshape wide ave_growth, i(period label within_country_var) j(income_var, string)
 rename ave_growth* *
 
-order label period
-sort label period 
+order label within_country_var period HIC_w_exc HIC_w_inc UMIC_w_exc UMIC_w_inc LL_w_exc LL_w_inc
+sort label within_country_var period
 
-replace period = "+" if period == "pos"
-replace period = "-" if period == "neg"
 
 // being foxy with LATEX: replace percent signs, anything in parenthesis,
 // the words "LFP". make sure that every other row is blank, since we have 
@@ -242,9 +271,9 @@ replace period = "-" if period == "neg"
 sort label
 gen count = 1
 bysort label: egen count2 = sum(count)
-assert count2 == 2
+assert count2 == 4
 drop count*
-gen n = mod(_n, 2)
+gen n = mod(_n, 4)
 replace label = subinstr(label, "Government", "Gov't",.)
 replace label = subinstr(label, " including Social Contributions", "",.)
 replace label = subinstr(label, "Labor Force Participation", "LFP",.)
@@ -254,7 +283,7 @@ replace label = trim(regexr(label , "\((.)+\)", ""))
 
 // merge rows when applicable
 replace label = "\multirow{2}[0]{3cm}{" + label + "}"
-replace label = "" if n == 0
+replace label = "" if n != 1
 br
 
 replace n = _n
@@ -265,26 +294,31 @@ replace last_row = last_row - 1
 replace label = subinstr(label, "\multirow{2}[0]", "\multirow{2}[1]",.) ///
 	if n == last_row | n == 1
 
+// modify period:
+replace within_country_var = "\multirow{2}[0]{*}{" + within_country_var + "}" if mod(n, 2) == 1
+replace within_country_var = "" if mod(n, 2) != 1
+
 // draws a horizontal line in between each variable category
-replace label = "\midrule\\" + label if n != 1 & mod(n, 2) != 0
+replace label = "\midrule\\" + label if n != 1 & mod(n, 4) == 1
 replace label = subinstr(label, "%", "\%",.)
 
 drop n last_row
 
-order label period l_exc_w_exc_c_bet l_exc_w_exc_c_with l_exc_w_inc_c_bet l_exc_w_inc_c_with l_inc_w_exc_c_bet l_inc_w_exc_c_with l_inc_w_inc_c_bet l_inc_w_inc_c_with
+order label within_country_var period HIC_w_inc HIC_w_exc UMIC_w_inc UMIC_w_exc LL_w_inc LL_w_exc
 
 // output to latex:
 #delimit ;
 texsave * using "table1.txt", 
 nonames replace frag 
 headerlines(
-"& \multicolumn{1}{r}{} & \multicolumn{4}{c}{LIC/LMIC excluded} & \multicolumn{4}{c}{LIC/LMIC included} \\ \cmidrule{3-10}          & \multicolumn{1}{r}{} & \multicolumn{2}{c}{War Excluded} & \multicolumn{2}{c}{War Included} & \multicolumn{2}{c}{War Excluded} & \multicolumn{2}{c}{War Included} \\ \cmidrule{3-10}    \multicolumn{1}{c}{Variable} & \multicolumn{1}{c}{Labor Force}  & \multicolumn{1}{c}{Between} & \multicolumn{1}{c}{Within} & \multicolumn{1}{c}{Between} & \multicolumn{1}{c}{Within} & \multicolumn{1}{c}{Between} & \multicolumn{1}{c}{Within} & \multicolumn{1}{c}{Between} & \multicolumn{1}{c}{Within} \\"
+"&       &       & \multicolumn{2}{c}{HIC} & \multicolumn{2}{c}{UMIC} & \multicolumn{2}{c}{LIC/LMIC} \\
+\cmidrule(lr){4-5}\cmidrule(lr){6-7}\cmidrule(lr){8-9}Variable & Aggregation Method & Labor Force & War included & War excluded & War included & War excluded & War included & War excluded"
 ) 
 size(3) width(1\textwidth)
 title ("Growth (\%) during periods of working age population decline" "vs. periods of working age population growth") 
 nofix 
 marker(results_region) 
-footnote("\textit{Between} compares years with negative and positive working-age population growth across every country. \textit{Within} compares years with negative and positive working-age population growth within the same country. \textit{Within} uses the earliest prior period of positive working-age population growth. ILO estimates are non-modeled national reports. Wars were excluded based on whether there were more than 10,000 battle-related deaths in that geography as reported by Uppsala University UCDP data. Stock returns are normalized and inflation adjusted. Government revenue includes social contributions.")
+footnote("NOTE---\textit{Between} compares years with negative and positive working-age population growth across every country. \textit{Within} compares years with negative and positive working-age population growth within the same country. \textit{Within} uses the earliest prior period of positive working-age population growth. ILO estimates are non-modeled national reports. Wars were excluded based on whether there were more than 10,000 battle-related deaths in that geography as reported by Uppsala University UCDP data. Stock returns are normalized and inflation adjusted. Government revenue includes social contributions. Number of country-years are in parentheses.")
 ;
 #delimit cr
 
