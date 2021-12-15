@@ -10,13 +10,10 @@ set scheme s1mono
 set type double, perm
 
 // CHANGE THIS!! --- Define your own directories:
-foreach user in "`c(username)'" {
-	global root "C:/Users/`user'/Dropbox/CGD/Projects/dem_neg_labor"
-}
-
+global root "C:/Users/`c(username)'/Dropbox/CGD/Projects/dem_neg_labor"
+global output "C:/Users/`c(username)'/Dropbox/Apps/Overleaf/Demographic Labor Effects"
 global code        "$root/code"
 global input       "$root/input"
-global output      "$root/output"
 cd "$input"
 global check "yes"
 
@@ -638,220 +635,6 @@ rename (country yq) (iso3c year)
 sort iso3c year
 save "cleaned_baker_bloom_terry_panel_data.dta", replace
 
-// Correllates of War -------------------------------------------------------
-// make sure that we have 1 country year after the merge
-
-// get the country codes ----------
-import delimited "system2016.csv", clear
-keep stateabb ccode
-duplicates drop
-sort ccode
-gen ccodel1 = ccode[_n-1]
-assert ccodel1 != ccode
-drop ccodel1
-save "cor_war_(cow)_codes.dta", replace
-
-// define program to load each correllates of war dataset:
-quietly capture program drop clean_cow
-program clean_cow
-	args file_name_ vars_keep_
-	
-	// import file:
-	if (regexm("`file_name_'", ".csv$")) {
-		import delimited "`file_name_'", clear
-	}
-	if (regexm("`file_name_'", ".dta$")) {
-		use "`file_name_'", clear
-	}
-	
-	// keep certain important variables on start of wa &, country codes
-	rename *, lower
-	keep `vars_keep_'
-	
-	// replace missing values
-		//  -9 = year unknown
-		//  -7 = ongoing
-		//  -8 = not applicable
-
-	foreach i of varlist _all {
-			replace `i' = . if inlist(`i', -9, -8, -7, -6)
-	}
-end
-
-tempfile intra inter nonstate extra
-
-// INTRA -------
-clear
-clean_cow "INTRA-STATE WARS v5.1.dta" "warnum ccode* starty* endy*"
-foreach i of varlist _all {
-assert `i' != -9
-}
-gen filename = "intra"
-save `intra'
-
-// INTER --------
-clean_cow "directed dyadic war may 2018.dta" "warnum state* warstrtyr warendyr"
-foreach i of varlist _all {
-assert `i' != -9
-}
-gen filename = "inter"
-assert warstrtyr !=. & warendyr!=.
-save `inter'
-
-// NONSTATE ---------
-import delimited "cow_Non-StateWarData_v4.0.csv", clear
-
-// EXTRA-STATE ----------
-clean_cow "Extra-StateWarData_v4.0.csv" "warnum ccode* starty* endy*"
-foreach i of varlist _all {
-assert `i' != -9
-}
-br if startyear1 != . & endyear1 == .
-
-// we can replace ccode2 variable because this is a 1-state w/ a nonstate actor
-replace ccode1 = ccode2 if ccode1 == .
-assert ccode1 != .
-assert ccode1 ==ccode2 if ccode2 != .
-drop ccode2
-gen filename = "extra"
-save `extra'
-
-// append the correllates of war datasets -------
-clear 
-use `extra'
-foreach i in `intra' `inter' {
-	append using `i', force
-}
-
-duplicates drop
-
-save "temp_appended.dta", replace
-use "temp_appended.dta", clear
-
-// coalesce columns
-gen ccode = .
-foreach i in statea ccode1 ccodea {
-	replace ccode = `i' if ccode == .
-}
-foreach i in statea ccode1 ccodea {
-	assert ccode == `i' if `i' != .
-}
-
-// Concerns: 
-// What to do about non-state wars?
-// What to do about regional wars? (e.g. ISIS-al Nusra Front War of 2014; Rada'a War of 2014-present)
-// For now, we're dropping them.
-drop if ccode == .
-drop statea ccode1 ccodea
-rename stateb ccodeb
-
-tempfile appended
-save `appended'
-
-// merge codes & separate code b --------
-
-// Right now, we have a dataset that has a column with PAIRs of states. 
-// Change to be a dataset with just 1 column for the state.
-use "cor_war_(cow)_codes.dta", clear
-mmerge ccode using `appended'
-assert inlist(_merge, 1, 3)
-keep if _merge == 3
-drop _merge
-
-tempfile part1
-save `part1'
-
-replace ccode = ccodeb
-drop stateabb ccodeb
-drop if ccode == .
-mmerge ccode using "cor_war_(cow)_codes.dta"
-tempfile part2
-save `part2'
-
-append using `part1'
-drop _merge ccodeb
-
-// make sure that each Country ISO3c code has a 1-1 match with the numeric codes
-preserve
-keep ccode stateabb
-duplicates drop
-check_dup_id "stateabb"
-check_dup_id "ccode"
-restore
-
-// pivot longer: ---------
-drop filename
-ds
-local varlist `r(varlist)'
-di "`varlist'"
-gen id = _n
-local excluded ccode warnum stateabb id
-local varlist : list varlist - excluded
-di "`varlist'"
-foreach i in `varlist' {
-	rename `i' stub`i'
-}
-reshape long stub, i(`excluded') j(type_variable) string
-drop if stub == .
-keep stateabb type_variable stub
-rename (stateabb type_variable stub) (iso3c type1 year)
-
-// label whether the year is the start of a war or the end of a war
-// we only keep annual values because our other datasets are annual
-gen type = ""
-replace type = "END" if ///
-			((strpos(type1, "yr") > 0) | (strpos(type1, "year") > 0)) & ///
-			(strpos(type1, "end") > 0)
-replace type = "START" if ///
-			((strpos(type1, "yr") > 0) | (strpos(type1, "year") > 0)) & ///
-			((strpos(type1, "start") > 0)|(strpos(type1, "strt") > 0))
-
-drop type1
-keep if type != ""
-
-// if there is a war that starts and ends on the same year, then just label is as
-// the end in that year (we'll replace ends with indicator showing that it's in
-// a war for that year):
-duplicates drop
-sort iso3c year type
-bysort iso3c year: gen dup = _n
-assert type == "START" if dup >= 2
-drop if dup >= 2
-drop dup
-
-tempfile start_end_of_wars_long
-save `start_end_of_wars_long'
-
-// create a grid of all the combinations of iso3c and year from 1800 to 2021
-keep iso3c
-duplicates drop
-set obs 400
-gen year = 1800 + _n
-fillin iso3c year
-
-// Our EXTRA-STATE war dataset goes to 2007.
-// Our INTER-STATE war dataset goes to 2010.
-// Our INTRA-STATE war dataset goes to 2014.
-// So, we have to take the minimum of these dates 
-drop if iso3c == "" | year > 2007
-drop _fillin
-
-// merge in our war dataset
-mmerge iso3c year using `start_end_of_wars_long'
-check_dup_id "iso3c year"
-sort iso3c year
-bysort iso3c: fillmissing type, with(previous)
-gen war = 0
-replace war = 1 if type == "START"
-replace war = 0 if type == "END"
-replace war = 0 if type == ""
-replace war = 1 if _merge == 3
-drop if year > 2007
-keep iso3c year war
-
-sort iso3c year
-save "finalized_war.dta", replace
-
 // Fertility -----------------------------------------------------------------
 
 import delimited "un_wpp/WPP2019_Period_Indicators_Medium.csv", clear
@@ -870,6 +653,151 @@ naomit
 
 save "UN_fertility.dta", replace
 
+// Stock Market Data (Baker Bloom Terry) -----------------------------------
+
+// GDP deflator data: 
+wbopendata, language(en – English) indicator(NY.GDP.DEFL.ZS) long clear
+keep countrycode year ny_gdp_defl_zs countryname
+drop if ny_gdp_defl_zs ==.
+rename (countrycode ny_gdp_defl_zs) (iso3c deflator)
+gen denom = deflator if year == 2007
+bysort iso3c: fillmissing denom
+gen defl = deflator / denom
+tempfile defl
+save `defl'
+
+// get stock market data:
+use "$input/baker_bloom_terry_packet/daily_stock_data/daily_stock_data.dta", clear
+
+// we only have stock market data until March for 2020, which is right when the 
+// market crashes from COVID, so we exclude 2020.
+drop if year == 2020
+
+// First take a monthly average of the index price. Then take an annual average
+// of the index price. Then take the returns of that.
+collapse (mean) Close, by(year month country)
+collapse (mean) Close, by(year country)
+
+//returns:
+fillin year country
+sort country year
+gen ret = Close / Close[_n-1] if country == country[_n-1]
+rename country iso3c
+
+// merge
+mmerge iso3c year using `defl'
+
+// Stock Market Data --------------------------------------------------------
+
+// get all the file names from stocks and interest rates:
+filelist , dir("$input/stocks and interest rates/") pattern(*.csv)
+keep filename
+levelsof filename, local(dirs_toloop)
+clear
+
+tempfile full_append
+g temp = 1
+save `full_append', replace
+
+// make loop through these files:
+foreach filename in `dirs_toloop' {
+	import delimited "$input/stocks and interest rates/`filename'", varnames(1) encoding(UTF-8) rowrange(1:51) clear
+	keep ticker name seriestype currency country units
+	save "$input/id_interest_stocks.dta", replace
+
+	import delimited "$input/stocks and interest rates/`filename'", varnames(1) encoding(UTF-8) rowrange(52:1000000) clear
+
+	// replace variable name with the first row
+	ds
+	local a = r(varlist)
+	foreach var in `a' {
+		local try = strtoname(`var'[1]) 
+		capture rename `var'  `try'
+	}
+	drop in 1
+
+	// clean + reshape
+	rename *_Close Close*
+	quietly capture rename _*_Close Close_*
+	
+	// We drop the Norway Oslo SE OBX-25 Total Return Index in favor of the more 
+	// broad Oslo SE All-Share Index. the former includes the largst 25 companies,
+	// while the latter contains all.
+	quietly capture drop Close_OBXD
+	
+	reshape long Close, i(Date) j(ticker, string)
+	naomit
+	rename (Date Close) (date value)
+	mmerge ticker using "$input/id_interest_stocks.dta"
+	destring value, replace
+	g year = substr(date, 1, 4)
+	g month = substr(date, 6, 2)
+	g day = substr(date, 9, 2)
+	drop _merge
+	destring year month day, replace
+	keep value country year month day seriestype
+	drop if missing(value)
+	
+	// iso3c codes
+	conv_ccode country
+	drop if inlist(country, "Europe", "World")
+	assert !missing(iso3c)
+
+	collapse (mean) value, by(iso3c year seriestype)
+	sort iso3c year
+	local filename = subinstr("`filename'", "_csv.csv", "", .)
+
+	save "$input/clean_`filename'.dta", replace
+	append using `full_append', force
+	save `full_append', replace
+	clear
+}
+use `full_append'
+save "$input/full_append_stock_interest.dta", replace
+
+use "$input/full_append_stock_interest.dta", clear
+
+// make new variables: (convert to wide manually)
+drop temp
+sort seriestype iso3c year
+qui levelsof seriestype, local(levels)
+foreach l of local levels {
+	local var_label = subinstr("`l'", "-", "",.)
+	local var_label = subinstr("`var_label'", "  ", " ",.)
+	local var_label = subinstr("`var_label'", "  ", " ",.)
+	local var_label = subinstr("`var_label'", " ", "_",.)
+	local var_label = subinstr("`var_label'", " ", "",.)
+	local var_label = lower("`var_label'")
+	
+	g `var_label' = value if seriestype == "`l'"
+}
+bys seriestype year iso3c: gen dup = _n
+check_dup_id "seriestype year iso3c"
+
+collapse (mean) consumer_price_indices government_bond_yields stock_indices_composites total_return_indices_stocks treasury_bill_yields, by(iso3c year)
+
+// calculate inflation-adjusted returns and growth in inflation variables: 
+// (base year 2000)
+g cpi_base = consumer_price_indices if year == 2000
+bysort iso3c: fillmissing cpi_base
+g cpi_adj = consumer_price_indices/cpi_base
+g index_inf_adj = total_return_indices_stocks / cpi_adj
+br if !missing(index_inf_adj)
+fillin iso3c year
+sort iso3c year
+// bys iso3c: g ret_iadj = index_inf_adj / index_inf_adj[_n-1] - 1
+// bys iso3c: g g_cpi = consumer_price_indices / consumer_price_indices[_n-1] - 1
+
+rename (consumer_price_indices government_bond_yields treasury_bill_yields) (cpi yield_10yr yield_3mo)
+keep iso3c year cpi yield_10yr yield_3mo index_inf_adj
+drop if ///
+	missing(cpi) & ///
+	missing(yield_10yr) & ///
+	missing(yield_3mo) & ///
+	missing(index_inf_adj)
+
+save "$input/clean_stock_interest.dta", replace
+
 // Female labor force participation rate ------------------------------------
 
 // ILO Female and total labor force participation rate:
@@ -885,105 +813,6 @@ naomit
 sort iso3c year
 tempfile flp_ilo
 save `flp_ilo'
-
-// // female labor force participation from OECD and Long, downloaded from OWID:
-// // https://ourworldindata.org/female-labor-supply?preview_id=13372&preview_nonce=6d1f899c93&_thumbnail_id=-1&preview=true#female-participation-in-labor-markets-grew-remarkably-in-the-20th-century
-// // first chart: Female participation in labor markets grew remarkably in the 20th century
-//
-// import delimited "female-labor-force-participation-OECD-Long.csv", clear
-// rename code iso3c
-// rename femalelaborforceparticipationrat flp2
-//
-// preserve
-// conv_ccode "entity"
-// keep iso3c iso
-// duplicates drop
-// naomit
-// assert iso3c == iso
-// restore
-//
-// sort iso3c year
-// tempfile flp_oecd_long
-// save `flp_oecd_long'
-//
-// clear
-// use `flp_oecd_long'
-// fillin iso3c year
-// drop _fillin
-//
-// // merge both
-// mmerge iso3c year using `flp_ilo'
-//
-// // check that entity and iso3c match and are not duplicated
-// preserve
-// keep entity iso3c
-// naomit
-// duplicates drop
-// conv_ccode entity
-// naomit
-// assert iso3c == iso
-// check_dup_id "entity"
-// check_dup_id "iso3c"
-// check_dup_id "iso"
-// restore
-//
-// keep iso3c year *lp flp2
-// drop if missing(iso3c)
-//
-// // splice together the female laborforce participation ILO data with the 
-// // actual estimates by OECD and Long using growth method
-//
-// // indicator for missing:
-// gen indic = missing(flp2)
-// sort iso3c year
-// by iso3c: egen earliest_present = min(year) if !missing(flp2)
-// bysort iso3c: fillmissing earliest_present
-// sort iso3c year
-// by iso3c: egen latest_present = max(year) if !missing(flp2)
-// bysort iso3c: fillmissing latest_present
-// gen indic_to_fill_gr = year < earliest_present | year > latest_present
-//
-// // loop arbitrarily through 50 times, and fill with growth:
-// forval i = 0/50 {
-// sort iso3c year
-// // cast backwards
-// gen flp2_new = flp2[_n+1] * flp / flp[_n+1] if iso3c==iso3c[_n+1]
-// replace flp2 = flp2_new if (missing(flp2) & indic_to_fill_gr == 1)
-// drop flp2_new*
-// // cast forward
-// gen flp2_new = flp2[_n-1] * flp / flp[_n-1] if iso3c==iso3c[_n-1]
-// replace flp2 = flp2_new if (missing(flp2) & indic_to_fill_gr == 1)
-// drop flp2_new*
-// }
-//
-// // then, if ALL the variables are missing, just replace female labor force 
-// // participation with the new modeled estimate from ILO
-// check_dup_id "iso3c year"
-// sort iso3c year
-// gen indic_after_gr = missing(flp2)
-// by iso3c: egen tot_missing = sum(indic_after_gr)
-// by iso3c: gen tot = _N
-// gen missing_ratio = tot_missing / tot
-// replace flp2 = flp if missing_ratio == 1
-//
-// // make sure for the variables that you DID fill in, that the ratio of the
-// // reference dataset (modeled ILO values) is the SAME as the ratios of 
-// // consecutive filled in variables.
-// sort iso3c year
-//
-// preserve
-// gen check_ratio_1 = flp/flp[_n-1] if iso3c == iso3c[_n-1]
-// gen check_ratio_2 = flp2/flp2[_n-1] if iso3c == iso3c[_n-1]
-// keep if indic == 1
-// keep iso3c year check_ratio_1 check_ratio_2
-// naomit
-// assert abs(check_ratio_1 - check_ratio_2)<0.0001
-// restore
-//
-// drop indic_after_gr tot_missing tot missing_ratio indic earliest_present ///
-// latest_present indic_to_fill_gr flp
-// rename flp2 flp
-
 save "flp.dta", replace
 
 // Merge all together --------------------------------------------------------
@@ -1000,11 +829,11 @@ input str40 datasets
 	"IMF_GFS_revenue.dta"
 	"clean_grd.dta"
 	"un_pop_estimates_cleaned.dta"
-	"cleaned_baker_bloom_terry_panel_data.dta"
 	"finalized_war.dta"
 	"UCDP_geography_deaths.dta"
 	"UN_fertility.dta"
 	"flp.dta"
+	"clean_stock_interest.dta"
 end
 levelsof datasets, local(datasets)
 
@@ -1027,9 +856,11 @@ label variable gov_rev_pc_gdp "Total government revenue (% GDP)"
 label variable gov_tax_rev_pc_gdp "Total government tax revenue (% GDP)"
 label variable income "Historical WB income classificaiton"
 label variable iso3c "ISO3c country code"
-label variable l1avgret "Stock returns (normalized & CPI inflation adjusted); cumul. return in prior 4 quarters"
-label variable l1lavgvol "Stock volatility; average quarterly standard deviations of daily stock returns over previous four quarters"
 label variable rgdp_pwt "GDP, PPP (PWT)"
+
+// Baker Bloom Terry
+// label variable l1avgret "Stock returns (normalized & CPI inflation adjusted); cumul. return in prior 4 quarters"
+// label variable l1lavgvol "Stock volatility; average quarterly standard deviations of daily stock returns over previous four quarters"
 
 // Demographics
 label variable poptotal "Total Population"
@@ -1066,6 +897,12 @@ label variable fm_gov_exp "Government expenditures (% of GDP) (IMF Fiscal Monito
 label variable fm_gov_rev "Government revenue (% of GDP) (IMF Fiscal Monitor)"
 label variable gfs_gov_exp "General budgetary government expense (% of GDP) (IMF GFS)"
 label variable gfs_gov_rev "General budgetary government revenue (% of GDP) (IMF GFS)"
+
+// Stock market and interest rate data from GFD
+label variable yield_10yr "10 year bond yields"
+label variable yield_3mo "3 month bond yields"
+label variable cpi "Consumer Price Index"
+label variable index_inf_adj "Stock Index, inflation adjusted"
 
 // Checks --------------------------------------------------------------------
 
@@ -1109,7 +946,7 @@ drop year_mod
 // Take a lag of that sum & find the percent change in population.
 fillin iso3c year
 drop _fillin
-foreach i in rgdp_pwt popwork rev_inc_sc fm_gov_exp l1avgret flp lp gov_deficit_pc_gdp gov_exp_TOT {
+foreach i in rgdp_pwt popwork rev_inc_sc fm_gov_exp cpi yield_10yr yield_3mo index_inf_adj flp lp gov_deficit_pc_gdp gov_exp_TOT {
 	sort iso3c year
 	loc lab: variable label `i'
 	foreach num of numlist 1/2 {
@@ -1127,7 +964,7 @@ foreach i in rgdp_pwt popwork rev_inc_sc fm_gov_exp l1avgret flp lp gov_deficit_
 }
 
 // Tag whether the average percent change in real GDP growth is negative.
-foreach i in rgdp_pwt popwork rev_inc_sc fm_gov_exp l1avgret flp lp gov_deficit_pc_gdp gov_exp_TOT {
+foreach i in rgdp_pwt popwork rev_inc_sc fm_gov_exp cpi yield_10yr yield_3mo index_inf_adj flp lp gov_deficit_pc_gdp gov_exp_TOT {
 	sort iso3c year
 	loc lab: variable label `i'
 	gen NEG_`i' = "Negative" if aveP1_`i' < 0
@@ -1175,7 +1012,7 @@ foreach var in popwork {
 // within the past 1 years was negative. So, finally, it replaces the
 // average lag 2 year growth rate by a missing value if the average 1 year
 // growth rate is positive or absent (not negative).
-foreach i in rgdp_pwt rev_inc_sc fm_gov_exp l1avgret flp lp gov_deficit_pc_gdp gov_exp_TOT {
+foreach i in rgdp_pwt rev_inc_sc fm_gov_exp cpi yield_10yr yield_3mo index_inf_adj flp lp gov_deficit_pc_gdp gov_exp_TOT {
 	sort iso3c year
 	loc lab: variable label `i'
 	foreach num of numlist 1/2 {
@@ -1196,6 +1033,8 @@ foreach i in rgdp_pwt rev_inc_sc fm_gov_exp l1avgret flp lp gov_deficit_pc_gdp g
 bysort income year: egen income_aveP1_rgdp_pwt=mean(aveP1_rgdp_pwt)
 bysort        year: egen global_aveP1_rgdp_pwt=mean(aveP1_rgdp_pwt)
 
+// We only have population data after 1950, so ignore before.
+keep if year >= 1950
 save "final_derived_labor_growth.dta", replace
 
 
