@@ -130,7 +130,6 @@ plot <- df %>%
 ggsave("Number of Population Growth and Decline Line.png", plot, width = 9, height = 7)
 
 
-
 #  one concern about the use of fertility as an IV for number of workers 20-65 is 
 #  that it doesn't include immigrants *into* a country
 #  what does the literature say about growth regressions of this sort?
@@ -140,6 +139,56 @@ ggsave("Number of Population Growth and Decline Line.png", plot, width = 9, heig
 
 df <- rio::import("final_derived_labor_growth.dta") %>% dfdt()
 
+
+
+# Plots of HICs -----------------------------------------------------------
+
+df <- readstata13::read.dta13("hics_collapsed_final_derived_labor_growth.dta") %>% as.data.table()
+
+df <- df %>% rename(
+    "GDP, PPP (PWT)" = "rgdp_pwt",
+    "Government expenditures (% of GDP) (IMF Fiscal Monitor)" = "fm_gov_exp",
+    "Government revenue including Social Contributions (UN GRD)" = "rev_inc_sc",
+    "Stock returns (%)" = "l1avgret",
+    "Female Labor Force Participation (%)" = "flp",
+    "Total Labor Force Participation (%)" = "lp"
+) %>% as.data.frame() %>% as.data.table()
+
+
+for (i in c(
+    "GDP, PPP (PWT)",
+    "Government expenditures (% of GDP) (IMF Fiscal Monitor)",
+    "Government revenue including Social Contributions (UN GRD)",
+    "Stock returns (%)",
+    "Female Labor Force Participation (%)",
+    "Total Labor Force Participation (%)"
+)) {
+    plot <-
+        ggplot(
+            df,
+            aes(
+                x = year,
+                y = eval(as.name(i)),
+                group = NEG_popwork,
+                linetype = NEG_popwork
+            )
+        ) +
+        geom_line() +
+        my_custom_theme +
+        scale_x_continuous(limits = c(1985, 2020)) +
+        labs(
+            x = "",
+            y = "",
+            title = paste0(i, " in HICs"),
+            subtitle = 
+                paste0(strwrap("When working-age population growth is Negative or Positive. Years were dropped if there were less than 10 countries in sample.", 100), collapse = "\n")
+        ) +
+        scale_color_manual(values = c("#00677F", "#8B0000", "#693C5E", "#FFBF3F", "#000000"))
+    
+    ggsave(paste0(
+        cleanname(cleanname(make.names(i)))
+        , "_HIC_line",  ".pdf"), plot)
+}
 
 
 #  What were economic growth rates during those five year periods compared to the (last) (ten year?) period before labor force growth was negative?
