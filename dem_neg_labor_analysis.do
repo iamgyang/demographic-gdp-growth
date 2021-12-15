@@ -1,11 +1,11 @@
 // Analysis -------------------
 
 // Create a histogram with x axis being the 1 year period
-use "final_derived_labor_growth.dta", clear
+use "$input/final_derived_labor_growth.dta", clear
 
 drop if year >= 2020 | year <= 1950
 histogram year, percent ytitle(Percent) by(NEG_popwork) discrete
-graph export "hist_negative_pop_years_1yr_periods.png", width(2600) height(1720) replace
+graph export "$output/hist_negative_pop_years_1yr_periods1.png", width(2600) height(1720) replace
 graph close
 
 keep NEG_popwork year iso3c
@@ -18,11 +18,11 @@ br if year == 1995 & neg == 1
 collapse (sum) neg pos, by(year)
 
 graph bar (asis) neg pos, over(year, label(angle(vertical))) stack
-graph export "hist_negative_pop_years_1yr_periods.png", width(2600) height(1720) replace
+graph export "$output/hist_negative_pop_years_1yr_periods2.png", width(2600) height(1720) replace
 
 // Median size of pop growth decline:
 
-use "final_derived_labor_growth.dta", clear
+use "$input/final_derived_labor_growth.dta", clear
 keep if NEG_rgdp_pwt == "Negative"
 tabstat aveP1_rgdp_pwt, statistics(median) save
 ret list
@@ -32,7 +32,7 @@ mat B = r(StatTotal)
 // (countries can have duplicate 1 year periods).
 capture log close
 set logtype text
-log using log_results_labor_growth.txt, replace
+log using "$output/log_results_labor_growth.txt", replace
 display c(current_time)
 
 di "median average annual negative growth rate across 1 yr period: " B[1,1]
@@ -61,7 +61,7 @@ args title subtitle caption
 #delimit cr
 end
 
-use "final_derived_labor_growth.dta", clear
+use "$input/final_derived_labor_growth.dta", clear
 keep if NEG_popwork == "Negative"
 keep iso3c year aveP2_rgdp_pwt_bef aveP1_rgdp_pwt
 naomit
@@ -74,13 +74,13 @@ replace period = "2 yr positive" if period == "P2_rgdp_pwt_bef"
 collapse (mean) ave_growth, by(period)
 replace ave_growth=round(ave_growth, 0.001)*100
 bar_graph_ave_growth_rate `"GDP growth rate (%) during periods of" "positive or negative labor force growth"' `""' `"N = `num_countries' country years"'
-graph export "bar_GDP_growth_pos_neg_labor_growth.png", width(2600) height(1720) replace
+graph export "$output/bar_GDP_growth_pos_neg_labor_growth.png", width(2600) height(1720) replace
 graph close
 
 // What were economic growth rates during those five year periods compared to 
 // the global (and country income group) average growth?
 
-use "final_derived_labor_growth.dta", clear
+use "$input/final_derived_labor_growth.dta", clear
 keep if NEG_popwork == "Negative"
 keep iso3c year income aveP1_rgdp_pwt income_aveP1_rgdp_pwt global_aveP1_rgdp_pwt
 naomit
@@ -96,8 +96,11 @@ rename ave ave_growth
 collapse (mean) ave_growth, by(period)
 replace ave_growth=round(ave_growth, 0.001)*100
 bar_graph_ave_growth_rate `"GDP growth rate (%) during periods of" "negative labor force growth" "(vs. global and income-group average)"' `""' `"N = `num_countries' country years"'
-graph export "bar_GDP_growth_neg_labor_growth_income_world.png", width(2600) height(1720) replace
+graph export "$output/bar_GDP_growth_neg_labor_growth_income_world.png", width(2600) height(1720) replace
 graph close
+
+// What happened to government revenues and deficits during those periods 
+// compared to prior? ---------------------------------------------------------
 
 // What happened to government revenues and deficits during those periods 
 // compared to prior? ---------------------------------------------------------
@@ -130,15 +133,26 @@ else if ($test_run == 0) {
 foreach within_country_var in "Within" "Between" {
 foreach income_var in "LIC_LMIC" "UMIC" "HIC" {
 foreach war_var in "Including" "Excluding" {
-foreach var in rgdp_pwt fm_gov_exp rev_inc_sc l1avgret flp lp {
+foreach var in rgdp_pwt fm_gov_exp rev_inc_sc cpi yield_10yr index_inf_adj flp lp {
 if ($test_run == 1) {
 	local war_var "Including"
-	local income_var "Including"
-	local var l1avgret
-	local within_country_var "Between"	
+	local income_var "UMIC"
+	local var cpi
+	local within_country_var "Within"
 }
-	use "final_derived_labor_growth.dta", clear
+
+	di "`within_country_var'" "`income_var'" "`war_var'" "`var'"
 	
+	// just to be safe, drop all the local macros here:
+	foreach i in lab income_var war_var within_country_var num_countries num_obs {
+		quietly capture macro drop `i'
+	}
+	
+	use "$input/final_derived_labor_growth.dta", clear
+	
+	if ("`var'" == "cpi") {
+	    drop if iso3c == "VEN"
+	}
 	// conditions to narrow the dataset:
 	if ("`war_var'" == "Excluding") {
 		drop if missing(est_deaths)
@@ -152,7 +166,6 @@ if ($test_run == 1) {
 		drop if missing(income)
 		keep if income == "`income_var'"
 	}
-	label variable l1avgret "Stock returns (normalized, inflation adjusted)"
 	loc lab: variable label `var'
 	
 	// Between compares years with negative and positive working-age population 
@@ -165,10 +178,8 @@ if ($test_run == 1) {
 		keep if NEG_popwork == "Negative"
 		
 		keep iso3c year aveP1_`var' aveP1_`var'_bef
+		pause 0
 		naomit
-		summ iso3c year
-		pause 1
-		local num_countries "`r(N)'"
 		ds
 		local varlist `r(varlist)'
 		local excluded iso3c year
@@ -176,54 +187,52 @@ if ($test_run == 1) {
 		foreach i in `to_gather' {
 			rename `i' ave`i'
 		}
-		reshape long ave, i(iso3c year) j(period, string)
-		pause 2
-		replace period = "Negative" if period == "aveP1_`var'"
-		replace period = "Positive" if period == "aveP1_`var'_bef"
-		rename ave ave_growth
+		pause 1
+		summ iso3c year
+		local num_obs `r(N)'
+		if (`num_obs' > 0) {
+			reshape long ave, i(iso3c year) j(period, string)
+			replace period = "Negative" if period == "aveP1_`var'"
+			replace period = "Positive" if period == "aveP1_`var'_bef"
+			rename ave ave_growth
+		}
 	}
 	else if ("`within_country_var'" == "Between") {
 		keep iso3c year aveP1_`var' NEG_popwork
-		naomit
-		rename (aveP1_`var' NEG_popwork) (ave_growth period)
 		pause 1
-		summ iso3c year
-		local num_countries "`r(N)'"
+		naomit
+		pause 2
+		rename (aveP1_`var' NEG_popwork) (ave_growth period)
 	}
 	
-	di "`within_country_var'" "`income_var'" "`war_var'" "`var'"
-	
-	// only create graphs and output numbers if there are enough observations.
+	// only create output numbers if there are enough observations.
+	summ iso3c year
 	local num_obs `r(N)'
 	if (`num_obs' > 0) {
-		collapse (mean) ave_growth, by(period)
-		replace ave_growth = round(ave_growth, 0.0001) * 100
+		pause 3
 		
-	// 	bar_graph_ave_growth_rate `"`lab'" "growth rate (%) during periods of" "negative and positive labor force growth" "(1 year annual average)" "`within_country_var' countries"' ///
-	// 	`"`war_var' War" "`income_var' LICs & LMICs"' ///
-	// 	`"N = `num_countries' country years"'
-	// 	graph export "bar_`var'_growth_neg_labor_growth_war-`war_var'_`income_var'_within-`within_country_var'.png", width(2600) height(1720) replace
-	// 	graph close
+		// get country-years
+		summ iso3c year if period == "Negative"
+		local neg_countries `r(N)'
+		summ iso3c year if period == "Positive"
+		local pos_countries `r(N)'
+		
+		collapse (mean) ave_growth, by(period)
+		// round to 2 sig figs
+		replace ave_growth = round(ave_growth,10^(floor(log10(abs(ave_growth)))-1))
+		replace ave_growth = ave_growth * 100
+			// replace ave_growth = round(ave_growth, 0.0001) * 100
 		
 		// append this to our table:
 		gen label = "`lab'"
 		gen income_var = "`income_var'"
 		gen war_var = "`war_var'"
-		gen num_country_years = `num_countries'
+		gen num_country_years = `pos_countries' if period == "Positive"
+		replace num_country_years = `neg_countries' if period == "Negative"
 		gen within_country_var = "`within_country_var'"
 		gen var = "`var'"
 		append using `avg_growth'
 		save `avg_growth', replace
-		
-		//// TOOO DOOOOOOOOOOOO!!!!!!!!!!!!!
-		capture macro drop y1 y2 y3 z1 z2		
-		gen label = "`lab'"
-		gen income_var = "`income_var'"
-		gen war_var = "`war_var'"
-		gen num_country_years = `num_countries'
-		gen within_country_var = "`within_country_var'"
-		
-		
 	}
 }
 }
@@ -232,13 +241,13 @@ if ($test_run == 1) {
 
 use `avg_growth'
 
-save "raw_table_avg_growth.dta", replace
+save "$output/raw_table_avg_growth.dta", replace
 
 // // Output to LATEX -------------------------------------------------------------
 
 // much of the rest of this is aesthetics RE: LATEX
 
-use "raw_table_avg_growth.dta", clear
+use "$output/raw_table_avg_growth.dta", clear
 
 drop if var == "NA"
 drop if num_country_years<10
@@ -251,7 +260,7 @@ replace period = "+" if period == "Positive"
 replace period = "-" if period == "Negative"
 foreach i in war_var {
 	replace `i' = "exc" if `i' == "Excluding"
-	replace `i' = "inc" if `i' == "Including"	
+	replace `i' = "inc" if `i' == "Including"
 }
 
 // this allows us to reshape the variable later
@@ -308,43 +317,48 @@ order label within_country_var period HIC_w_inc HIC_w_exc UMIC_w_inc UMIC_w_exc 
 
 // output to latex:
 #delimit ;
-texsave * using "table1.txt", 
+texsave * using "$output/table1.txt", 
 nonames replace frag 
 headerlines(
 "&       &       & \multicolumn{2}{c}{HIC} & \multicolumn{2}{c}{UMIC} & \multicolumn{2}{c}{LIC/LMIC} \\
-\cmidrule(lr){4-5}\cmidrule(lr){6-7}\cmidrule(lr){8-9}Variable & Aggregation Method & Labor Force & War included & War excluded & War included & War excluded & War included & War excluded"
+\cmidrule(lr){4-5}\cmidrule(lr){6-7}\cmidrule(lr){8-9}Variable & Aggregation Method & Labor Force Growth & War included & War excluded & War included & War excluded & War included & War excluded"
 ) 
 size(3) width(1\textwidth)
 title ("Growth (\%) during periods of working age population decline" "vs. periods of working age population growth") 
 nofix 
 marker(results_region) 
-footnote("NOTE---\textit{Between} compares years with negative and positive working-age population growth across every country. \textit{Within} compares years with negative and positive working-age population growth within the same country. \textit{Within} uses the earliest prior period of positive working-age population growth. ILO estimates are non-modeled national reports. Wars were excluded based on whether there were more than 10,000 battle-related deaths in that geography as reported by Uppsala University UCDP data. Stock returns are normalized and inflation adjusted. Government revenue includes social contributions. Number of country-years are in parentheses.")
+footnote("NOTE---\textit{Between} means that we collapsed and took an average of the positive and negative labor force growth periods. \textit{Within} means that for each country and year of negative labor force growth, we found the nearest prior period where there was positive labor force growth. If no prior period of positive labor force growth was found, then we dropped that country. We then took an average of those periods to obtain positive labor force growth numbers. So, the countries with positive labor force growth in the \textit{between} aggregation method may have never experienced a period of negative labor force growth. On the other hand, all countries that are in the \textit{within} category have experienced a period of negative labor force growth. ILO estimates are non-modeled national reports. Wars were excluded based on whether there were more than 10,000 battle-related deaths in that geography as reported by Uppsala University UCDP data. Government revenue includes social contributions. Venezuela CPI data was omitted.")
 ;
 #delimit cr
 
 // adjust the TXT output file:
 // adjustments to the base latex file:
-import delimited "table1.txt", clear
+import delimited "$output/table1.txt", clear
 // replace v1 = subinstr(v1, "\end{tabularx}","\end{tabularx}\end{adjustbox}",1) 
 replace v1 = subinstr(v1, "\begin{tabularx}{1\textwidth}{lCCCCCCCCC}", "\begin{tabularx}{1\textwidth}{p{3cm} c X X X X X X X X }",1) 
+replace v1 = subinstr(v1, "{\footnotesize", "{\scriptsize\hfill \textit{Number of country-years are in parentheses.}",1) 
+
 // replace v1 = subinstr(v1, "\begin{tabularx}","\begin{adjustbox}{angle=90}\begin{tabularx}",1)
 
 // replace that output file once more:
-outfile using "table1.txt", noquote replace wide
+outfile using "$output/table1.txt", noquote replace wide
 
+// Analysis of only HICs ---------------------------------------------------
+use "$input/final_derived_labor_growth.dta", clear
+keep if income == "HIC"
+keep if !missing(NEG_popwork)
+gen count = 1
+foreach v of varlist _all {
+    quietly capture macro drop `v'll
+	local `v'll: var label `v'
+}
+collapse (mean) rgdp_pwt fm_gov_exp rev_inc_sc cpi yield_10yr index_inf_adj flp lp (sum) count, by(year NEG_popwork)
+foreach v of varlist _all {
+	label var `v' `"``v'll'"'
+}
+drop if count < 10
 
-
-
-
-
-
-
-
-
-
-
-
-
+save "$input/hics_collapsed_final_derived_labor_growth.dta", replace
 
 
 
