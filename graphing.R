@@ -191,6 +191,106 @@ for (i in c(
 }
 
 
+# Plots of HICs 2 ---------------------------------------------------------
+
+# import and convert country codes:
+j <- readstata13::read.dta13("hic_10yr_event_study.dta") %>% dfdt()
+j[,country:=code2name(iso3c)]
+
+# variable labels
+a <- fread("
+name	varlab
+rgdp_pwt	GDP
+rgdppc_pwt	GDP per capita
+fm_gov_exp	Government expenditures
+rev_inc_sc	Government revenue
+cpi	CPI
+yield_10yr	10 year yields
+index_inf_adj	Stock Index
+flp	Female Labor Force Participation
+lp	Labor Force Participation
+")
+
+# gather our variables
+j <- j %>% rename(x = var) %>% dfdt()
+
+# get variable labels
+j <- merge(j, a, by.x = "x", by.y = "name", all = T) %>% dfdt()
+
+# all rows should have a variable label
+waitifnot(sum(is.na(j$varlab))==0)
+
+# remove things without values
+j <- j[!is.na(value)]
+
+# for formatting in graph: define the max year:
+j[, maxyr := max(year), by = .(iso3c, x)]
+
+plot <- ggplot(data = j) +
+    geom_line(aes(x = year,
+                  y = value,
+                  group = country),
+              color = "grey75") +
+    geom_line(aes(x = year,
+                  y = value_mean),
+              color = "red") +
+    geom_point(data = j[year == maxyr],
+               aes(x = year,
+                   y = value,
+                   group = country),
+               color = "grey75") +
+    geom_point(data = j[year == 10],
+               aes(x = year,
+                   y = value_mean),
+               color = "red") +
+    my_custom_theme +
+    scale_x_continuous(breaks = seq(-10, 10, 2),
+                       limits = c(-10, 10)) +
+    labs(x = "", y = "") +
+    scale_color_custom +
+    geom_text_repel(
+        data = j[year == maxyr],
+        aes(
+            x = year,
+            y = value,
+            group = country,
+            label = country
+        ),
+        color = "grey50"
+    ) + 
+    geom_vline(xintercept = 1,
+                color="gray80", 
+                linetype="dashed")+
+    facet_wrap( ~ varlab, scales = "free")
+
+# setwd(output_dir)
+ggsave("HIC_UMIC_10yr_event.pdf", plot, width = 10, height = 10)
+# setwd(input_dir)
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# \\\\\\ ------------------------------------------------------------------
+
 #  What were economic growth rates during those five year periods compared to the (last) (ten year?) period before labor force growth was negative?
 # 
 #  What were economic growth rates during those five year periods compared to the global (and country income group) average growth?
