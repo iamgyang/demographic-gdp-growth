@@ -137,7 +137,7 @@ save "$input/oecd_tax_revenue.dta", replace
 
 // Govt revenues ------------------------------------------------------------
 
-use "government_revenue_dataset/grd_Merged.dta", clear
+use "$input/government_revenue_dataset/grd_Merged.dta", clear
 egen caution_GRD = rowtotal(caution1accuracyqualityorco caution2resourcerevenuestax caution3unexcludedresourcere caution4inconsistencieswiths)
 keep iso country year caution_GRD rev_inc_sc tot_res_rev tax_inc_sc
 rename iso iso3c
@@ -275,7 +275,7 @@ save "$input/IMF_GFS_revenue.dta", replace
 // https://sites.google.com/site/srbaker/academic-work
 // Importantly, Baker, Bloom, & Terry data is normalized to have SD = 1
 
-use "baker_bloom_terry_panel_data.dta", clear
+use "$input/baker_bloom_terry_panel_data.dta", clear
 keep country yq l1lavgvol l1avgret
 sort country yq
 gen keep_indic = mod(yq, 1)

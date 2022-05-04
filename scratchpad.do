@@ -1,4 +1,4 @@
-use "temp_appended.dta", clear
+use "$input/temp_appended.dta", clear
 
 // coalesce columns
 gen ccode = .
@@ -24,7 +24,7 @@ save `appended'
 
 // Right now, we have a dataset that has a column with PAIRs of states. 
 // Change to be a dataset with just 1 column for the state.
-use "cor_war_(cow)_codes.dta", clear
+use "$input/cor_war_(cow)_codes.dta", clear
 mmerge ccode using `appended'
 assert inlist(_m, 1, 3)
 keep if _m == 3
