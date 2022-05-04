@@ -861,7 +861,6 @@ input str40 datasets
 	"IMF_GFS_revenue.dta"
 	"clean_grd.dta"
 	"un_pop_estimates_cleaned.dta"
-	"finalized_war.dta"
 	"UCDP_geography_deaths.dta"
 	"UN_fertility.dta"
 	"flp.dta"
