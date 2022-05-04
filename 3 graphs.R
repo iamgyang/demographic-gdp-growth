@@ -1,74 +1,6 @@
-# To do:
-
-# do we want to get the IRON levels from NMC as opposed to CHAT? 
-# https://correlatesofwar.org/data-sets/national-material-capabilities
-
-# change to historical income groups instead of current income groups
-
-rm(list = ls()) # clear the workspace
-
-
-# Options: ----------------------------------------------------------------
-
-# debugging
-options(error=browser)
-options(error=NULL)
-
-# disable data.table auto-indexing (causes errors w/ dplyr functions)
-options(datatable.auto.index = FALSE)
-
-
-# Notes -------------------------------------------------------------------
-
-
-
-# Directories -------------------------------------------------------------
-
-# clear environment objects
-rm(list = ls())
-
-# You will have to edit this to be your own computer's working directories:
-user<-Sys.info()["user"]
-root_dir <- paste0("C:/Users/", user, "/Dropbox/CGD/Projects/dem_neg_labor/")
-input_dir <- paste0(root_dir, "input")
-output_dir <- paste0(root_dir, "output")
-code_dir <- paste0(root_dir, "code")
-
-setwd(input_dir)
-
-
-# Packages ---------------------------------------------------------------
-{
-    list.of.packages <- c(
-        "base", "car", "cowplot", "dplyr", "ggplot2", "ggthemes", "graphics", "grDevices",
-        "grid", "gridExtra", "gvlma", "h2o", "lubridate", "MASS", "readxl", "rio", "rms",
-        "rsample", "stats", "tidyr", "utils", "zoo", "xtable", "stargazer", "data.table",
-        "ggrepel", "foreign", "fst", "countrycode", "wbstats", "quantmod", "R.utils",
-        "leaps", "bestglm", "dummies", "caret", "jtools", "huxtable", "haven", "ResourceSelection",
-        "betareg", "quantreg", "margins", "plm", "collapse", "kableExtra", "tinytex",
-        "LambertW", "scales", "stringr", "imputeTS", "shadowtext", "pdftools", "glue",
-        "purrr", "OECD", "RobustLinearReg", "forcats", "WDI", "xlsx")
-}
-
-new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[, "Package"])]
-if (length(new.packages)) install.packages(new.packages, dependencies = TRUE)
-for (package in list.of.packages) {library(eval((package)), character.only = TRUE)}
-
-# set GGPLOT default theme:
-theme_set(theme_clean() + 
-              theme(plot.background = 
-                        element_rect(color = "white")))
-
-
-# source(paste0(root_dir, "code/", "helper_functions.R"))
-source(paste0("C:/Users/", user, "/Dropbox/Coding_General/personal.functions.R"))
-
-# ... ---------------------------------------------------------------------
-
-# Graphing ------------------------------
-
-
+# Graphing ---------------------------------------------------------------------------
 # UN population figures: working age population
+setwd(input_dir)
 df <- rio::import("un_pop_with_HIC_LIC.dta") %>% as.data.table()
 
 df <- df %>% 
@@ -130,12 +62,13 @@ plot <- df %>%
 ggsave("Number of Population Growth and Decline Line.png", plot, width = 9, height = 7)
 
 
-#  one concern about the use of fertility as an IV for number of workers 20-65 is 
-#  that it doesn't include immigrants *into* a country
-#  what does the literature say about growth regressions of this sort?
+#  one concern about the use of fertility as an IV for number of workers 20-65
+#  is that it doesn't include immigrants *into* a country what does the
+#  literature say about growth regressions of this sort?
 
 #  --------------------
-#  When did they happen (just a histogram by five year period)? How large the percentage drop in workers (*median* size by five year period)
+#  When did they happen (just a histogram by five year period)? How large the
+#  percentage drop in workers (*median* size by five year period)
 
 df <- rio::import("final_derived_labor_growth.dta") %>% dfdt()
 
@@ -266,80 +199,33 @@ plot <- ggplot(data = j) +
 # setwd(output_dir)
 ggsave("HIC_UMIC_10yr_event.pdf", plot, width = 10, height = 10)
 # setwd(input_dir)
-    
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# \\\\\\ ------------------------------------------------------------------
-
-#  What were economic growth rates during those five year periods compared to the (last) (ten year?) period before labor force growth was negative?
+# ------------------------------------------------------------------------------------------
+#  What were economic growth rates during those five year periods compared to
+#  the (last) (ten year?) period before labor force growth was negative?
 # 
-#  What were economic growth rates during those five year periods compared to the global (and country income group) average growth?
+#  What were economic growth rates during those five year periods compared to
+#  the global (and country income group) average growth?
 #  ---------------------------------------------
 # 
-#  What happened to government revenues and deficits during those periods compared to prior?
+#  What happened to government revenues and deficits during those periods
+#  compared to prior?
 # 
 #  What happened to interest rates and stock market returns?
 # 
-#  What happened to the unemployment rate total labor force participation and female labor force participation?
+#  What happened to the unemployment rate total labor force participation and
+#  female labor force participation?
 # 
-#  Take out cases which overlap with a country being at war (https:# correlatesofwar.org/data-sets) and then take out low and lower middle income countries and see if that makes a difference.
+#  Take out cases which overlap with a country being at war (https:#
+#  correlatesofwar.org/data-sets) and then take out low and lower middle income
+#  countries and see if that makes a difference.
 # 
-#  Look forward: according to the UN population forecasts, how many countries in each forthcoming five year period will see declining working age population? How large the percentage drop in workers (*median* size by five year period)
+#  Look forward: according to the UN population forecasts, how many countries in
+#  each forthcoming five year period will see declining working age population?
+#  How large the percentage drop in workers (*median* size by five year period)
 # 
-#  "instrument' or just use the predicted change in working age population from ten years prior (e.g. us value for population aged 10-54 in 1980 as the value for population aged 20-64 in 1990) and/or try 20 year lag.
+#  "instrument' or just use the predicted change in working age population from
+#  ten years prior (e.g. us value for population aged 10-54 in 1980 as the value
+#  for population aged 20-64 in 1990) and/or try 20 year lag.
 # 
 #  Thanks!
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
