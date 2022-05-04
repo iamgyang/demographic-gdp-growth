@@ -50,7 +50,7 @@ save "$input/un_pop_estimates_cleaned.dta", replace
 // PWT GDP (growth rates) -----------------------------------------------------
 
 use "$input/pwt100.dta", clear
-keep rgdpna countrycode year
+keep rgdpna countrycode yea
 drop if rgdpna == .
 rename (rgdpna countrycode) (rgdp_pwt iso3c)
 
