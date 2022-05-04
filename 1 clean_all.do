@@ -103,12 +103,12 @@ program clean_oecd
 
 // revenue
 import delimited "$input/oecd_DP_LIVE_11082021203447392.csv", encoding(UTF-8) clear 
-clean_oecd GGREV PC_GDP oecd_govt_rev.dta gov_rev_pc_gdp
+clean_oecd GGREV PC_GDP "$input/oecd_govt_rev.dta" gov_rev_pc_gdp
 check_dup_id "iso3c year"
 
 // deficit
 import delimited "$input/oecd_DP_LIVE_11082021203534767.csv", encoding(UTF-8) clear 
-clean_oecd GGNLEND PC_GDP oecd_govt_deficit.dta gov_deficit_pc_gdp
+clean_oecd GGNLEND PC_GDP "$input/oecd_govt_deficit.dta" gov_deficit_pc_gdp
 check_dup_id "iso3c year"
 
 // expenditrure
