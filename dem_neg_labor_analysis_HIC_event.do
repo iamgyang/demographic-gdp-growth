@@ -9,7 +9,7 @@ save "$input/final_derived_labor_growth.dta", replace
 
 // get a list of countries with negative population growth for at least 10 yrs
 use "$input/final_derived_labor_growth.dta", clear
-keep if (income_1989 == "HIC") & year <= 2020 //  | income == "HIC"
+keep if year <= 2020 & (income_1989 == "HIC" | income_1989 == "UMIC") //| income == "HIC")
 keep iso3c year NEG_popwork
 fillin iso3c year
 drop _fillin
@@ -52,7 +52,7 @@ Get a dataset of all HICs excluding that country, and keep only the  variable
 of interest, the years of interest
 */
 use "$input/final_derived_labor_growth.dta", clear
-keep if income_1989 == "HIC"
+keep if income_1989 == "HIC" | income_1989 == "UMIC"
 foreach i in `aging_isos' {
 	drop if iso3c == "`i'"
 }
@@ -174,7 +174,7 @@ save `b'
 // now merge in the actual country-level data: (e.g. the data on interest
 // rates for Japan)
 use "$input/final_derived_labor_growth.dta", clear
-keep iso3c year pop rgdp_pwt rgdppc_pwt fm_gov_exp rev_inc_sc cpi yield_10yr index_inf_adj flp lp
+keep iso3c year poptotal rgdp_pwt rgdppc_pwt fm_gov_exp rev_inc_sc cpi yield_10yr index_inf_adj flp lp
 
 // pivot longer for merge:
 foreach i in rgdp_pwt rgdppc_pwt fm_gov_exp rev_inc_sc cpi yield_10yr index_inf_adj flp lp {
@@ -200,14 +200,14 @@ replace year = year - year_st - 10
 // index by the year where population is first negative:
 gen value1 = value if year == 1
 bys var iso3c: fillmissing value1
-replace value = value - value1
-assert value == 0 | mi(value) if year == 1
+replace value = value/value1*100
+assert value == 100 | mi(value) if year == 1
 
 // get a mean across countries for each year:
 bys year var: egen value_mean = mean(value)
 
-keep iso3c year var pop value value_mean
-order iso3c year var pop value value_mean
+keep iso3c year var poptotal value value_mean
+order iso3c year var poptotal value value_mean
 sort var iso3c year
 
 // export to R for graphing.
