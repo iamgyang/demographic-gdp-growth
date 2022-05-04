@@ -18,11 +18,11 @@ sort iso3c year
 
 /* 
 generate a ton of lag variables, and then see if they sum up to 10--this
-basically accomplishes the same thing as a cumulative sum, EXCEPT that if we
-see a sum that equals 10, we know that it was achieved through a consecutive
-sum of 10 negative years of working population growth (as opposed to for a sum
-of 8, it might be through a non-consecutive sum of 8 negative working
-population growth years) 
+basically accomplishes the same thing as a cumulative sum, EXCEPT that if we see
+a sum that equals 10, we know that it was achieved through a consecutive sum of
+10 negative years of working population growth (as opposed to for a sum of 8, it
+might be through a non-consecutive sum of 8 negative working population growth
+years) 
 */
 
 foreach i of numlist 1/9 {
@@ -33,7 +33,8 @@ keep if sum == 10
 drop run_L*
 
 /*
-now, we've identified the countries and years where there was a consecutive 10 years of negative growth
+now, we've identified the countries and years where there was a consecutive 10
+years of negative growth
 */
 sort iso3c year
 by iso3c: egen minyr = min(year)
@@ -45,11 +46,11 @@ tempfile a
 save `a'
 
 /* 
-Basic strategy is to merge in the start and end dates of the prior dataset
-on the aging countries with a dataset of the global HIC means.
+Basic strategy is to merge in the start and end dates of the prior dataset on
+the aging countries with a dataset of the global HIC means.
 
-Get a dataset of all HICs excluding that country, and keep only the  variable
-of interest, the years of interest
+Get a dataset of all HICs excluding that country, and keep only the  variable of
+interest, the years of interest
 */
 use "$input/final_derived_labor_growth.dta", clear
 keep if income_1989 == "HIC" | income_1989 == "UMIC"
@@ -60,14 +61,15 @@ foreach i in `aging_isos' {
 gen count = 1
 bys year: egen count2 = sum(count)
 
-// make sure that Japan (definitely on our list of aging countries), is not in this list
+// make sure that Japan (definitely on our list of aging countries), is not in
+// this list
 assert iso3c!="JPN"
 
 // list of variables:
 loc vars rgdp_pwt rgdppc_pwt fm_gov_exp rev_inc_sc cpi yield_10yr index_inf_adj flp lp
 
-// This gives us the variables of interest as a mean for all HICs, 
-// excluding the countries of interest
+// This gives us the variables of interest as a mean for all HICs, excluding the
+// countries of interest
 keep iso3c year `vars'
 
 // for each variable, I need a fixed sample:
@@ -92,16 +94,16 @@ if ("`fixed_sample_comp'" == "yes") {
 		use `sample_hic_comparator', clear
 		
 		/*
-		for female labor force participation and labor force participation, 
-		IF we set the first time for the restricted sample to be 1960, then
-		we end up only getting 1 country (USA), so I've set it here manually
-		to 1980
+		for female labor force participation and labor force participation, IF
+		we set the first time for the restricted sample to be 1960, then we end
+		up only getting 1 country (USA), so I've set it here manually to 1980
 		*/
 		if ("`var'" == "flp" | "`var'" == "lp") {
 		    keep if year >= 1980
 		}
 		
-		// for each variable, pivot wider, and na.omit the years to get a fixed sample
+		// for each variable, pivot wider, and na.omit the years to get a fixed
+		// sample
 		keep if var == "`var'"
 		reshape wide stub_, i(iso3c var) j(year)
 		naomit
@@ -146,8 +148,8 @@ drop _fillin
 
 // because we did a multiple-multiple merge, we have to now fill down the
 // missing values for each of the variables of interest--we know that the HIC
-// averages should be the SAME every year for real GDP for example, so we
-// group by year and fill in missing values.
+// averages should be the SAME every year for real GDP for example, so we group
+// by year and fill in missing values.
 foreach x in rgdp_pwt rgdppc_pwt fm_gov_exp rev_inc_sc cpi yield_10yr index_inf_adj flp lp {
     bys year: fillmissing `x'
     rename `x' `x'_hic
@@ -171,8 +173,8 @@ rename stub_ value_hic
 tempfile b
 save `b'
 
-// now merge in the actual country-level data: (e.g. the data on interest
-// rates for Japan)
+// now merge in the actual country-level data: (e.g. the data on interest rates
+// for Japan)
 use "$input/final_derived_labor_growth.dta", clear
 keep iso3c year poptotal rgdp_pwt rgdppc_pwt fm_gov_exp rev_inc_sc cpi yield_10yr index_inf_adj flp lp
 

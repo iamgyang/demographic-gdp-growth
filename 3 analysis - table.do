@@ -274,7 +274,6 @@ rename ave_growth* *
 order label within_country_var period HIC_w_exc HIC_w_inc UMIC_w_exc UMIC_w_inc LL_w_exc LL_w_inc
 sort label within_country_var period
 
-
 // being foxy with LATEX: replace percent signs, anything in parenthesis,
 // the words "LFP". make sure that every other row is blank, since we have 
 // 2 observations per variable:
