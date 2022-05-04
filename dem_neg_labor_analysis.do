@@ -41,9 +41,10 @@ display c(current_time)
 log close
 
 // Compare 5-yr period of growth NEGATIVE growth rates to the PREVIOUS 10-yr
-// growth rates (annualized). Create a bar graph that has the average GDP growth
-// rate during a period of 5-years of labor force decline compared to the
-// most recent 10-years where the average labor force did not decline.
+// growth rates (annualized). Create a bar graph that has the average GDP
+// growth rate during a period of 5-years of labor force decline compared to
+// the most recent 10-years where the average labor force did not decline.
+
 quietly capture program drop bar_graph_ave_growth_rate
 program bar_graph_ave_growth_rate
 args title subtitle caption
@@ -170,8 +171,8 @@ if ($test_run == 1) {
 	
 	// Between compares years with negative and positive working-age population 
 	// growth across every country. Within compares years with negative and
-	// positive working-age population growth within the same country. Within uses 
-	// the earliest prior period of positive working-age population growth.
+	// positive working-age population growth within the same country. Within
+	// uses  the earliest prior period of positive working-age population growth.
 	// ILO estimates are non-modeled national reports.
 	
 	if ("`within_country_var'" == "Within") {
@@ -352,20 +353,11 @@ foreach v of varlist _all {
     quietly capture macro drop `v'll
 	local `v'll: var label `v'
 }
-collapse (mean) rgdp_pwt fm_gov_exp rev_inc_sc cpi yield_10yr index_inf_adj flp lp (sum) count, by(year NEG_popwork)
+collapse (mean) rgdp_pwt rgdppc_pwt fm_gov_exp rev_inc_sc cpi yield_10yr index_inf_adj flp lp (sum) count, by(year NEG_popwork)
 foreach v of varlist _all {
 	label var `v' `"``v'll'"'
 }
 drop if count < 10
 
 save "$input/hics_collapsed_final_derived_labor_growth.dta", replace
-
-
-
-
-
-
-
-
-
 
