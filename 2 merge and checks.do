@@ -222,36 +222,16 @@ bysort        year: egen global_aveP1_rgdp_pwt=mean(aveP1_rgdp_pwt)
 keep if year >= 1950
 save "$input/final_derived_labor_growth.dta", replace
 
+// To do ----------------------------------------------------------------
+// create the dataset BEFORE you start whittling it down for the graphs (do the
+// lag vars for unemployment, govt rev, etc. as well)
 
+// perhaps we want to include some of the shocks in the baker bloom paper? add
+// **checks** at the end take a look at the labor - growth relationship in the
+// literature?
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// to do --------
-// create the dataset BEFORE you start whittling it down for the graphs (do the lag vars for unemployment, govt rev, etc. as well)
-
-// perhaps we want to include some of the shocks in the baker bloom paper?
-// add **checks** at the end
-// take a look at the labor - growth relationship in the literature?
-
-// one concern about the use of fertility as an IV for number of workers 20-65 is 
-// that it doesn't include immigrants *into* a country
+// one concern about the use of fertility as an IV for number of workers 20-65
+// is that it doesn't include immigrants *into* a country
 // --------------------
 // what does the literature say about growth regressions of this sort?
 
@@ -259,29 +239,42 @@ save "$input/final_derived_labor_growth.dta", replace
 // --------------------
 // And adding a bit more:
 //
-// I’m interested in looking at the impact of negative labor force growth on economies.  Pretty simple stuff at least to begin:
+// I’m interested in looking at the impact of negative labor force growth on
+// economies.  Pretty simple stuff at least to begin:
 //
-// Using the UN population data, find all 1 year periods where countries have experienced an absolute decline in their population aged 20-64. (A brief look suggests there are 203 historical cases at the country level).
+// Using the UN population data, find all 1 year periods where countries have
+// experienced an absolute decline in their population aged 20-64. (A brief look
+// suggests there are 203 historical cases at the country level).
 //
-// When did they happen (just a histogram by 1 year period)? How large the percentage drop in workers (*median* size by 1 year period)
+// When did they happen (just a histogram by 1 year period)? How large the
+// percentage drop in workers (*median* size by 1 year period)
 //
-// *median* size by 1 year period --> what do you mean here? get the median percent worker drop?
+// *median* size by 1 year period --> what do you mean here? get the median
+// percent worker drop?
 //
-// What were economic growth rates during those 1 year periods compared to the (last) (ten year?) period before labor force growth was negative?
+// What were economic growth rates during those 1 year periods compared to the
+// (last) (ten year?) period before labor force growth was negative?
 //
-// What were economic growth rates during those 1 year periods compared to the global (and country income group) average growth?
+// What were economic growth rates during those 1 year periods compared to the
+// global (and country income group) average growth?
 // ---------------------------------------------
 //
-// What happened to government revenues and deficits during those periods compared to prior?
+// What happened to government revenues and deficits during those periods
+// compared to prior?
 //
 // What happened to interest rates and stock market returns?
 //
-// What happened to the unemployment rate total labor force participation and female labor force participation?
+// What happened to the unemployment rate total labor force participation and
+// female labor force participation?
 //
-// Take out cases which overlap with a country being at war (https://correlatesofwar.org/data-sets) and then take out low and lower middle income countries and see if that makes a difference.
+// Take out cases which overlap with a country being at war
+// (https://correlatesofwar.org/data-sets) and then take out low and lower
+// middle income countries and see if that makes a difference.
 //
-// Look forward: according to the UN population forecasts, how many countries in each forthcoming 1 year period will see declining working age population? How large the percentage drop in workers (*median* size by 1 year period)
+// Look forward: according to the UN population forecasts, how many countries in
+// each forthcoming 1 year period will see declining working age population? How
+// large the percentage drop in workers (*median* size by 1 year period)
 //
-// “instrument’ or just use the predicted change in working age population from ten years prior (e.g. us value for population aged 10-54 in 1980 as the value for population aged 20-64 in 1990) and/or try 20 year lag.
-//
-// Thanks!
+// “instrument’ or just use the predicted change in working age population from
+// ten years prior (e.g. us value for population aged 10-54 in 1980 as the value
+// for population aged 20-64 in 1990) and/or try 20 year lag.
