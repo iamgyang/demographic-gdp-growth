@@ -15,7 +15,7 @@ replace neg = 0  if NEG_popwork == "Positive"
 gen pos = abs(1-neg)
 drop NEG_popwork 
 br if year == 1995 & neg == 1
-collapse (sum) neg pos, by(year)
+gcollapse (sum) neg pos, by(year)
 
 graph bar (asis) neg pos, over(year, label(angle(vertical))) stack
 graph export "$output/hist_negative_pop_years_1yr_periods2.png", width(2600) height(1720) replace
@@ -72,7 +72,7 @@ reshape long ave, i(iso3c year) j(period, string)
 rename ave ave_growth
 replace period = "1 yr negative" if period == "P1_rgdp_pwt"
 replace period = "2 yr positive" if period == "P2_rgdp_pwt_bef"
-collapse (mean) ave_growth, by(period)
+gcollapse (mean) ave_growth, by(period)
 replace ave_growth=round(ave_growth, 0.001)*100
 bar_graph_ave_growth_rate `"GDP growth rate (%) during periods of" "positive or negative labor force growth"' `""' `"N = `num_countries' country years"'
 graph export "$output/bar_GDP_growth_pos_neg_labor_growth.png", width(2600) height(1720) replace
@@ -94,7 +94,7 @@ replace period = "1 yr negative" if period == "P1_rgdp_pwt"
 replace period = "Global" if period == "_global_aveP1_rgdp_pwt"
 replace period = "Income-group" if period == "_income_aveP1_rgdp_pwt"
 rename ave ave_growth
-collapse (mean) ave_growth, by(period)
+gcollapse (mean) ave_growth, by(period)
 replace ave_growth=round(ave_growth, 0.001)*100
 bar_graph_ave_growth_rate `"GDP growth rate (%) during periods of" "negative labor force growth" "(vs. global and income-group average)"' `""' `"N = `num_countries' country years"'
 graph export "$output/bar_GDP_growth_neg_labor_growth_income_world.png", width(2600) height(1720) replace
@@ -218,7 +218,7 @@ if ($test_run == 1) {
 		summ iso3c year if period == "Positive"
 		local pos_countries `r(N)'
 		
-		collapse (mean) ave_growth, by(period)
+		gcollapse (mean) ave_growth, by(period)
 		// round to 2 sig figs
 		replace ave_growth = round(ave_growth,10^(floor(log10(abs(ave_growth)))-1))
 		replace ave_growth = ave_growth * 100
@@ -352,7 +352,7 @@ foreach v of varlist _all {
     quietly capture macro drop `v'll
 	local `v'll: var label `v'
 }
-collapse (mean) rgdp_pwt rgdppc_pwt fm_gov_exp rev_inc_sc cpi yield_10yr index_inf_adj flp lp (sum) count, by(year NEG_popwork)
+gcollapse (mean) rgdp_pwt rgdppc_pwt fm_gov_exp rev_inc_sc cpi yield_10yr index_inf_adj flp lp (sum) count, by(year NEG_popwork)
 foreach v of varlist _all {
 	label var `v' `"``v'll'"'
 }

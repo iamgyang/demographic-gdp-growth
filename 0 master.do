@@ -14,7 +14,6 @@ foreach user in "`c(username)'" {
 
 global code        "$root/code"
 global input       "$root/input"
-cd "$input"
 global check "yes"
 
 // CHANGE THIS!! --- Do we want to install user-defined functions?

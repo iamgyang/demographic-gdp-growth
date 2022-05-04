@@ -139,8 +139,8 @@ rename stub_* *
 recast double year
 label drop i
 
-// collapse by taking a mean
-collapse (mean) `vars', by(year)
+// gcollapse by taking a mean
+gcollapse (mean) `vars', by(year)
 mmerge year using `a'
 drop _merge
 fillin iso3c year

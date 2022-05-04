@@ -52,7 +52,7 @@ foreach filename in `dirs_toloop' {
 	drop if inlist(country, "Europe", "World")
 	assert !missing(iso3c)
 
-	collapse (mean) value, by(iso3c year seriestype)
+	gcollapse (mean) value, by(iso3c year seriestype)
 	sort iso3c year
 	local filename = subinstr("`filename'", "_csv.csv", "", .)
 
@@ -83,7 +83,7 @@ foreach l of local levels {
 bys seriestype year iso3c: gen dup = _n
 check_dup_id "seriestype year iso3c"
 
-collapse (mean) consumer_price_indices government_bond_yields stock_indices_composites total_return_indices_stocks treasury_bill_yields, by(iso3c year)
+gcollapse (mean) consumer_price_indices government_bond_yields stock_indices_composites total_return_indices_stocks treasury_bill_yields, by(iso3c year)
 
 // calculate inflation-adjusted returns and growth in inflation variables: 
 // (base year 2000)
