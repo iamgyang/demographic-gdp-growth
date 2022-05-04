@@ -14,10 +14,10 @@ foreach user in "`c(username)'" {
 
 global code        "$root/code"
 global input       "$root/input"
-global check "yes"
+global check       "no"
 
 // CHANGE THIS!! --- Do we want to install user-defined functions?
-loc install_user_defined_functions "Yes"
+loc install_user_defined_functions "No"
 
 if ("`install_user_defined_functions'" == "Yes") {
 	foreach i in rangestat wbopendata kountry mmerge outreg2 somersd ///
