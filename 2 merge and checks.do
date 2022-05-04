@@ -23,7 +23,7 @@ use "$input/pwt_cleaned.dta", clear
 
 foreach i in `datasets' {
 	di "`i'"
-	mmerge iso3c year using `i'
+	mmerge iso3c year using "$input/`i'"
 	drop _merge
 }
 
@@ -59,9 +59,9 @@ label variable rev_inc_sc "Government revenue including Social Contributions (UN
 label variable tax_inc_sc "Taxes including social contributions (UN GRD)"
 label variable tot_res_rev "Government Total Resource Revenue (UN GRD)"
 
-// War
+// // War
 label variable est_deaths "Estimated battle deaths in country (geographical location) from war (UCDP)"
-label variable war "Country in war (COW)"
+// label variable war "Country in war (COW)"
 label variable year "Year"
 
 // OECD government expenditure variables
