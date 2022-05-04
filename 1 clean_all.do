@@ -50,7 +50,7 @@ save "$input/un_pop_estimates_cleaned.dta", replace
 // PWT GDP (growth rates) -----------------------------------------------------
 
 use "$input/pwt100.dta", clear
-keep rgdpna countrycode yea
+keep rgdpna countrycode year
 drop if rgdpna == .
 rename (rgdpna countrycode) (rgdp_pwt iso3c)
 
@@ -91,6 +91,7 @@ save "$input/pwt_cleaned.dta", replace
 // Gov't revenue and deficit levels -----------------------------------------
 // https://stats.oecd.org/Index.aspx?DataSetCode=RS_AFR
 
+quietly capture program drop clean_oecd
 program clean_oecd
 	args indicator_ measure_ tempfilename_ variable_
 	keep if indicator == "`indicator_'"
@@ -262,11 +263,11 @@ program imf_clean_timeseries_GFS
 end
 
 // IMF Global Finance Statistics - Revenue & Expense -----------------------
-imf_clean_timeseries_GFS "imf_govt_finance_statistics/GFSE_09-11-2021 22-01-15-19_timeSeries.csv" "Percent of GDP" "Value" "Expense" "gfs_gov_exp"
+imf_clean_timeseries_GFS "$input/imf_govt_finance_statistics/GFSE_09-11-2021 22-01-15-19_timeSeries.csv" "Percent of GDP" "Value" "Expense" "gfs_gov_exp"
 drop countrycode country
 save "$input/IMF_GFS_expenses.dta", replace
 
-imf_clean_timeseries_GFS "imf_govt_finance_statistics/GFSR_09-11-2021 22-01-01-95_timeSeries.csv" "Percent of GDP" "Value" "Revenue" "gfs_gov_rev"
+imf_clean_timeseries_GFS "$input/imf_govt_finance_statistics/GFSR_09-11-2021 22-01-01-95_timeSeries.csv" "Percent of GDP" "Value" "Revenue" "gfs_gov_rev"
 drop countrycode country
 save "$input/IMF_GFS_revenue.dta", replace
 
