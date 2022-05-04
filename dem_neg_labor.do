@@ -10,20 +10,23 @@ set scheme s1mono
 set type double, perm
 
 // CHANGE THIS!! --- Define your own directories:
-global root "C:/Users/`c(username)'/Dropbox/CGD/Projects/dem_neg_labor"
-global output "C:/Users/`c(username)'/Dropbox/Apps/Overleaf/Demographic Labor Effects"
+foreach user in "`c(username)'" {
+	global root "C:/Users/`user'/Dropbox/CGD/Projects/dem_neg_labor"
+	global output "C:/Users/`user'/Dropbox/Apps/Overleaf/Demographic Labor Effects"
+}
+
 global code        "$root/code"
 global input       "$root/input"
 cd "$input"
 global check "yes"
 
 // CHANGE THIS!! --- Do we want to install user-defined functions?
-loc install_user_defined_functions "No"
+loc install_user_defined_functions "Yes"
 
 if ("`install_user_defined_functions'" == "Yes") {
 	foreach i in rangestat wbopendata kountry mmerge outreg2 somersd ///
 	asgen moss reghdfe ftools fillmissing {
-		ssc install `i'
+		capture quietly ssc install `i'
 	}
 }
 
@@ -877,6 +880,9 @@ foreach i in `datasets' {
 check_dup_id "iso3c year"
 fillin iso3c year
 drop _fillin country
+
+// GDP per capita:
+gen rgdppc_pwt = rgdp_pwt / poptotal
 
 // TO DO: is the GRD database / OECD database about CENTRAL gov't or about local / STATE govt's??
 label variable caution_GRD "Caution notes from Global Revenue Database data"
