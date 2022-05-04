@@ -21,7 +21,7 @@ loc install_user_defined_functions "Yes"
 
 if ("`install_user_defined_functions'" == "Yes") {
 	foreach i in rangestat wbopendata kountry mmerge outreg2 somersd ///
-	asgen moss reghdfe ftools fillmissing {
+	asgen moss reghdfe ftools fillmissing gtools {
 		capture quietly ssc install `i'
 	}
 }
