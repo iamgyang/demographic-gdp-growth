@@ -101,17 +101,17 @@ program clean_oecd
 	end
 
 // revenue
-import delimited "oecd_DP_LIVE_11082021203447392.csv", encoding(UTF-8) clear 
+import delimited "$input/oecd_DP_LIVE_11082021203447392.csv", encoding(UTF-8) clear 
 clean_oecd GGREV PC_GDP oecd_govt_rev.dta gov_rev_pc_gdp
 check_dup_id "iso3c year"
 
 // deficit
-import delimited "oecd_DP_LIVE_11082021203534767.csv", encoding(UTF-8) clear 
+import delimited "$input/oecd_DP_LIVE_11082021203534767.csv", encoding(UTF-8) clear 
 clean_oecd GGNLEND PC_GDP oecd_govt_deficit.dta gov_deficit_pc_gdp
 check_dup_id "iso3c year"
 
 // expenditrure
-import delimited "oecd_DP_LIVE_11082021203550955.csv", encoding(UTF-8) clear 
+import delimited "$input/oecd_DP_LIVE_11082021203550955.csv", encoding(UTF-8) clear 
 keep if indicator == "GGEXP"
 keep if measure == "PC_GDP"
 keep location time value subject
@@ -122,7 +122,7 @@ check_dup_id "iso3c year"
 save "$input/oecd_govt_expend.dta", replace
 
 // tax revenue
-import delimited "oecd_RS_GBL_11082021204025971.csv", encoding(UTF-8) clear 
+import delimited "$input/oecd_RS_GBL_11082021204025971.csv", encoding(UTF-8) clear 
 keep if indicator == "Tax revenue as % of GDP"
 keep if levelofgovernment == "Total"
 keep if taxrevenue == "Total tax revenue"
@@ -159,7 +159,7 @@ save "$input/clean_grd.dta", replace
 // Govt deficits ------------------------------------------------------------
 
 // From IMF fiscal monitor (FM) ---------------------------------------------
-import delimited "IMF_fiscal_monitor.csv", clear
+import delimited "$input/IMF_fiscal_monitor.csv", clear
 keep ïcountryname countrycode timeperiod expenditureofgdpg_x_g01_gdp_pt revenueofgdpggr_g01_gdp_pt
 rename ïcountryname country
 conv_ccode country
@@ -286,7 +286,7 @@ save "$input/cleaned_baker_bloom_terry_panel_data.dta", replace
 
 // Fertility -----------------------------------------------------------------
 
-import delimited "un_wpp/WPP2019_Period_Indicators_Medium.csv", clear
+import delimited "$input/un_wpp/WPP2019_Period_Indicators_Medium.csv", clear
 keep if variant == "Medium"
 keep location midperiod tfr
 gen year = 5 * floor(midperiod/5) 
