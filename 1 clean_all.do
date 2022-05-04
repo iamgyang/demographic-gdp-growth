@@ -27,7 +27,6 @@ drop _merge
 // convert country names to ISO3c codes
 conv_ccode "country"
 
-
 // UN-specific convert code
 conv_ccode_un "country"
 
@@ -319,7 +318,7 @@ save `defl'
 // get stock market data:
 use "$input/baker_bloom_terry_packet/daily_stock_data/daily_stock_data.dta", clear
 
-// we only have stock market data until March for 2020, which is right when the 
+// we only have stock market data until March for 2020, which is right when the
 // market crashes from COVID, so we exclude 2020.
 drop if year == 2020
 
@@ -370,9 +369,9 @@ foreach filename in `dirs_toloop' {
 	rename *_Close Close*
 	quietly capture rename _*_Close Close_*
 	
-	// We drop the Norway Oslo SE OBX-25 Total Return Index in favor of the more 
-	// broad Oslo SE All-Share Index. the former includes the largst 25 companies,
-	// while the latter contains all.
+	// We drop the Norway Oslo SE OBX-25 Total Return Index in favor of the more
+	// broad Oslo SE All-Share Index. the former includes the largst 25
+	// companies, while the latter contains all.
 	quietly capture drop Close_OBXD
 	
 	reshape long Close, i(Date) j(ticker, string)
