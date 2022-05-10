@@ -139,7 +139,7 @@ rename stub_* *
 recast double year
 label drop i
 
-// gcollapse by taking a mean
+// collapse by taking a mean
 gcollapse (mean) `vars', by(year)
 mmerge year using `a'
 drop _merge
@@ -157,7 +157,7 @@ foreach x in rgdp_pwt rgdppc_pwt fm_gov_exp rev_inc_sc cpi yield_10yr index_inf_
 sort iso3c year
 
 // Now we want to restrict our attention to the years that were 10 years prior
-// to the negative population event.
+// to the START of the negative population event.
 bys iso3c: fillmissing year_st, with(next)
 keep if year >= year_st & !mi(year_st)
 
@@ -196,7 +196,7 @@ replace value = value / value_hic
 
 // now, re-order the year variable so that we can compare the start and end
 // years: (e.g. if Germany first had a negative population growth at 1969, and
-// Japan did at 1989, then make 1969 == 1 for Germany and 1989 == 0 for Japan).
+// Japan did at 1989, then make 1969 == 0 for Germany and 1989 == 0 for Japan).
 replace year = year - year_st - 10
 
 // index by the year where population is first negative:
