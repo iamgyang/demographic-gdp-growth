@@ -1,4 +1,4 @@
-cd "C:/Users/`c(username)'/Dropbox/CGD/Projects/dem_neg_labor/code"
+cd "C:/Users/`c(username)'/Dropbox/CGD/Projects/dem_neg_labor/labor-growth"
 pause off
 do "0 master.do"
 do "1 clean_all.do"

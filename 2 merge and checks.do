@@ -136,17 +136,21 @@ foreach i in rgdp_pwt popwork rev_inc_sc fm_gov_exp cpi yield_10yr yield_3mo ind
 	loc lab: variable label `i'
 	foreach num of numlist 1/2 {
 		local yr = cond(`num' == 1 , 1, 2)
-		// lag population and real GDP
+		// lag variable
 			gen L`num'_`i' = `i'[_n-`num'] if iso3c == iso3c[_n-`num']
 			label variable L`num'_`i' "Lag `yr'yr `lab'"
-		// percent change in population & real GDP by 5-yr and 10-yr periods
+		// percent change in variable by X-yr periods
 			gen P`num'_`i' = (`i' / L`num'_`i') - 1
 			label variable P`num'_`i' "`yr'yr % Change in `lab'"
-		// average percent change in population & real GDP by 5-yr and 10-yr periods
+		// average percent change in variable by X-yr periods
 			gen aveP`num'_`i' = (`i' / L`num'_`i')^(1/`yr') - 1
-			label variable aveP`num'_`i' "Average Annual `yr'yr % Change in `lab'"
+			label variable aveP`num'_`i' "Average Annual `yr'yr Change in `lab'"
+		// average DIFFERENCE in variable by X-yr periods
+			gen aveD`num'_`i' = (`i' - L`num'_`i') / `yr'
+			label variable aveD`num'_`i' "Average Annual `yr'yr Change in `lab'"
 	}
 }
+pause 89yuggvuihjbbju
 
 // Tag whether the average percent change in real GDP growth is negative.
 foreach i in rgdp_pwt popwork rev_inc_sc fm_gov_exp cpi yield_10yr yield_3mo index_inf_adj flp lp gov_deficit_pc_gdp gov_exp_TOT {
@@ -209,9 +213,23 @@ foreach i in rgdp_pwt rev_inc_sc fm_gov_exp cpi yield_10yr yield_3mo index_inf_a
 		drop aveP`num'_`i'_bef
 		rename aveP`num'_`i'_bef2 aveP`num'_`i'_bef
 		replace aveP`num'_`i'_bef = . if NEG_popwork != "Negative"
-		label variable aveP`num'_`i'_bef "Avg ann gr, `lab', `yr'yr priod b/f neg labor gr"
+		label variable aveP`num'_`i'_bef "Avg ann % gr, `lab', `yr'yr priod b/f neg labor gr"
+	}
+	foreach num of numlist 1/2 {
+		local yr = cond(`num' == 1 , 1, 2)
+		gen aveD`num'_`i'_bef = aveD`num'_`i' if aveD`num'_popwork >= 0
+		sort iso3c year
+		by iso3c: fillmissing aveD`num'_`i'_bef, with(previous)
+		gen aveD`num'_`i'_bef2 = aveD`num'_`i'_bef[_n-1] if iso3c == iso3c[_n-1]
+		drop aveD`num'_`i'_bef
+		rename aveD`num'_`i'_bef2 aveD`num'_`i'_bef
+		replace aveD`num'_`i'_bef = . if NEG_popwork != "Negative"
+		label variable aveD`num'_`i'_bef "Avg ann gr, `lab', `yr'yr priod b/f neg labor gr"
 	}
 }
+
+// do the same for the differences:
+
 
 // What were economic growth rates during those 1 year periods compared to 
 // the global (and country income group) average growth?
