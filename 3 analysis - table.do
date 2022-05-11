@@ -140,7 +140,7 @@ use `avg_growth'
 
 save "$output/raw_table_avg_growth.dta", replace
 
-// // Output to LATEX -------------------------------------------------------------
+// Output to LATEX -------------------------------------------------------------
 
 // much of the rest of this is aesthetics RE: LATEX
 
@@ -167,7 +167,7 @@ drop war_var
 reshape wide ave_growth, i(period label within_country_var) j(income_var, string)
 rename ave_growth* *
 
-order label within_country_var period HIC_w_exc HIC_w_inc UMIC_w_exc UMIC_w_inc LL_w_exc LL_w_inc
+order label within_country_var period HIC_w_exc HIC_w_inc UMIC_w_exc UMIC_w_inc //LL_w_exc LL_w_inc
 sort label within_country_var period
 
 // being foxy with LATEX: replace percent signs, anything in parenthesis,
@@ -209,15 +209,16 @@ replace label = subinstr(label, "%", "\%",.)
 
 drop n last_row
 
-order label within_country_var period HIC_w_inc HIC_w_exc UMIC_w_inc UMIC_w_exc LL_w_inc LL_w_exc
+drop *_exc LL*
+order label within_country_var period HIC_w_inc UMIC_w_inc 
 
 // output to latex:
+
 #delimit ;
 texsave * using "$output/table1.txt", 
 nonames replace frag 
 headerlines(
-"&       &       & \multicolumn{2}{c}{HIC} & \multicolumn{2}{c}{UMIC} & \multicolumn{2}{c}{LIC/LMIC} \\
-\cmidrule(lr){4-5}\cmidrule(lr){6-7}\cmidrule(lr){8-9}Variable & Aggregation Method & Labor Force Growth & War included & War excluded & War included & War excluded & War included & War excluded"
+"\multicolumn{1}{l}{Variable} & \multicolumn{1}{p{13.285em}}{Aggregation Method} & Labor Force Growth & HIC   & UMIC"
 ) 
 size(3) width(1\textwidth)
 title ("Growth (\%) during periods of working age population decline" "vs. periods of working age population growth") 
