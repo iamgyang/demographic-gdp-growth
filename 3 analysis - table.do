@@ -90,6 +90,10 @@ if ($test_run == 1) {
 			replace period = "Positive" if period == "aveP1_`var'_bef"
 			rename ave ave_growth
 		}
+		
+		// make sure we're equal-weighting each country when we're doing 
+		// "within" aggregation
+		gcollapse (mean) ave_growth, by(iso3c period)
 	}
 	else if ("`within_country_var'" == "Between") {
 		keep iso3c year aveP1_`var' NEG_popwork
@@ -103,7 +107,7 @@ if ($test_run == 1) {
 	summ iso3c year
 	local num_obs `r(N)'
 	if (`num_obs' > 0) {
-		pause 3
+		pause 3 "`within_country_var'" "`income_var'" "`war_var'" "`var'"
 		
 		// get country-years
 		summ iso3c year if period == "Negative"
@@ -224,7 +228,7 @@ size(3) width(1\textwidth)
 title ("Growth (\%) during periods of working age population decline" "vs. periods of working age population growth") 
 nofix 
 marker(results_region) 
-footnote("NOTE---\textit{Between} means that we collapsed and took an average of the positive and negative labor force growth periods. \textit{Within} means that for each country and year of negative labor force growth, we found the nearest prior period where there was positive labor force growth. If no prior period of positive labor force growth was found, then we dropped that country. We then took an average of those periods to obtain positive labor force growth numbers. So, the countries with positive labor force growth in the \textit{between} aggregation method may have never experienced a period of negative labor force growth. On the other hand, all countries that are in the \textit{within} category have experienced a period of negative labor force growth. ILO estimates are non-modeled national reports. Wars were excluded based on whether there were more than 10,000 battle-related deaths in that geography as reported by Uppsala University UCDP data. Government revenue includes social contributions. Venezuela CPI data was omitted.")
+footnote("NOTE--- The \textit{between} aggregation simply takes averages of all country-years of data with positive PAPG and compares it to the average of all country-years of data with negative PAPG. The \textit{within} aggregation is limited to countries that have seen negative PAPG during the period covered by our data and also have data on a prior period of positive PAPG.   For those countries we took an average of the positive and an average of the negative periods of growth before averaging the positive and negative PAPG period growth rates across countries. For female labor force participation, labor force participation, and yields, we do not use growth rates, but rather differences, as changes in these variables (which are already in percentage form) are typically quoted in percentage points. ILO estimates are non-modeled national reports. Wars were excluded based on whether there were more than 10,000 battle-related deaths in that geography as reported by Uppsala University UCDP data. Government revenue includes social contributions. Venezuela CPI data was omitted.")
 ;
 #delimit cr
 
