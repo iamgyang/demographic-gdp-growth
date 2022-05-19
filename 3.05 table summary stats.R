@@ -1,4 +1,4 @@
-smmry_tbl <- as.data.table(readstata13::readdta("summary_statistics_table.dta"))
+smmry_tbl <- as.data.table(readstata13::read.dta13("summary_statistics_table.dta"))
 orig_names <- names(smmry_tbl)
 new_names <- orig_names %>% gsub("_", " ", ., fixed = T) %>% str_to_title()
 names(smmry_tbl) <- new_names

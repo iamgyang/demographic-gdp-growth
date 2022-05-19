@@ -45,7 +45,7 @@ root_dir <- paste0("C:/Users/", user, "/Dropbox/CGD/Projects/dem_neg_labor/")
 input_dir <- paste0(root_dir, "input")
 output_dir <- paste0(root_dir, "output")
 code_dir <- paste0(root_dir, "labor-growth")
-overleaf_dir <- glue("C:/Users/{user}/Dropbox/Apps/Overleaf/Demographic Labor Effects")
+overleaf_dir <- glue("C:/Users/{user}/Dropbox/Apps/Overleaf/Demographic Labor")
 
 setwd(input_dir)
 
@@ -59,5 +59,6 @@ dir.create(file.path(root_dir, "log"), showWarnings = FALSE)
 
 closeAllConnections()
 setwd(input_dir)
-sink(file=glue("{root_dir}log/log_3 graphs.txt")); source(glue("{code_dir}/3 graphs.R"), echo=TRUE, max.deparse.length=10000); sink()
+sink(file=glue("{root_dir}log/log_3.04 graphs.txt")); source(glue("{code_dir}/3.04 graphs.R"), echo=TRUE, max.deparse.length=10000); sink()
+sink(file=glue("{root_dir}log/log_3.05 table summary stats.txt")); source(glue("{code_dir}/3.05 table summary stats.R"), echo=TRUE, max.deparse.length=10000); sink()
 setwd(input_dir)

@@ -9,7 +9,7 @@ set type double, perm
 // CHANGE THIS!! --- Define your own directories:
 foreach user in "`c(username)'" {
 	global root "C:/Users/`user'/Dropbox/CGD/Projects/dem_neg_labor"
-	global output "C:/Users/`user'/Dropbox/Apps/Overleaf/Demographic Labor Effects"
+	global output "C:/Users/`user'/Dropbox/Apps/Overleaf/Demographic Labor"
 }
 
 global code        "$root/code"
