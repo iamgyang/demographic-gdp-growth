@@ -10,7 +10,6 @@ save "$input/temp_final_raw_labor_growth.dta", replace
 // year end
 // number of countries
 // number of observations
-// source
 // ----------------------------------------------------------------------------
 
 // for each variable except iso3c and year, find out & store into this table:
@@ -21,12 +20,6 @@ clear
 capture log close
 set obs 1 
 g variable = ""
-// g variable_label = ""
-// g year_start = 99999999999
-// g year_end = 99999999999
-// g number_of_countries = 99999999999
-// g number_of_observations = 99999999999
-// g source = ""
 save `summ_stats_tbl', replace
 clear
 
