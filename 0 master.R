@@ -45,7 +45,7 @@ root_dir <- paste0("C:/Users/", user, "/Dropbox/CGD/Projects/dem_neg_labor/")
 input_dir <- paste0(root_dir, "input")
 output_dir <- paste0(root_dir, "output")
 code_dir <- paste0(root_dir, "labor-growth")
-overleaf_dir <- glue("C:/Users/{user}/Dropbox/Apps/Overleaf/Demographic Labor")
+overleaf_dir <- glue("C:/Users/{user}/Dropbox/Apps/Overleaf/Demographic Labor/")
 
 setwd(input_dir)
 
