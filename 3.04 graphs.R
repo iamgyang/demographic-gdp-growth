@@ -61,16 +61,176 @@ plot <- df %>%
 
 ggsave(glue("{overleaf_dir}/Number of Population Growth and Decline Line.png"), plot, width = 9, height = 7)
 
+# Countries with declining workers vs. those without ----------------------
+pvq <- as.data.table(rio::import("un_pop_estimates_cleaned.dta"))
+
+# only 5 year periods
+pvq <- pvq[year%%5==0]
+
+# balanced panel:
+bal_panel <- CJ(iso3c = unique(pvq$iso3c), year = unique(pvq$year))
+pvq <- merge(bal_panel, pvq, by = c('iso3c','year'),all=T)
+waitifnot(nrow(pvq) == nrow(na.omit(pvq)))
+
+# negative growth
+pvq <- pvq[order(iso3c, year)]
+pvq[,diff:=shift(popwork,1), by = "iso3c"]
+pvq[,ret:=popwork / diff - 1 , by = "iso3c"]
+pvq[,neg_gr:=as.numeric(ret<0), by = "iso3c"]
+pvq <- na.omit(pvq)
+
+# number of countries w/ negative growth (and positive) per year
+pvq <- pvq[,.(
+    negative = sum(neg_gr),
+    positive = length(neg_gr) - sum(neg_gr),
+    positive_check = sum(neg_gr == 0)
+    ), 
+    by = "year"]
+waitifnot(nrow(pvq[positive!=positive_check])==0)
+pvq$positive_check <- NULL
+
+# make longer for graphing
+pvq <- as.data.table(pivot_longer(pvq, c("negative", "positive")))
+pvq[name == "negative",value:=-value]
+pvq[,name:=str_to_title(name)]
+
+# graph
+PLOT <- ggplot(pvq) +
+    geom_bar(aes(
+        x = year,
+        y = value,
+        color = name,
+        fill = name,
+        group = name,
+    ),
+        stat = "identity")+
+    my_custom_theme +
+    labs(
+        subtitle = "Number of Countries",
+        x = "",
+        y = ""#,
+        # title = "Count of countries with negative vs. positive prime-age population growth"
+    ) + 
+    scale_color_manual(values = c("firebrick4", "dodgerblue2"),
+                       labels = c("Negative", "Positive")) + 
+    scale_fill_manual(values = c("red2", "grey96"),
+                         labels = c("Negative", "Positive")) + 
+    scale_y_continuous(breaks=seq(-150,200,by=50),
+                       labels=abs(seq(-150,200,by=50))) + 
+    scale_x_continuous(breaks = seq(1950,2100,10)) 
+
+setwd(overleaf_dir)
+ggsave(
+    glue("{overleaf_dir}/count_country_papg.pdf"),
+    PLOT,
+    width = 10,
+    height = 5
+)
+setwd(input_dir)
+
+
+# GDP per capita growth ---------------------------------------------------
+
+pvq <- as.data.table(rio::import("un_pop_estimates_cleaned.dta"))
+
+# only 5 year periods
+pvq <- pvq[year%%5==0]
+
+# get GDP per capita & its growth
+pvq_gdp <- as.data.table(rio::import("pwt_cleaned.dta"))
+pvq_gdp <- pvq_gdp[,.(iso3c, year, rgdp_pwt)]
+
+# merge
+pvq <- merge(pvq, pvq_gdp, by = c('iso3c','year'),all.x = T)
+pvq <- na.omit(pvq)
+pvq[,gdppc:=rgdp_pwt / poptotal * 10^6]
+pvq <- pvq[,.(iso3c, year, gdppc, popwork)]
+pvq <- pvq[order(iso3c, year)]
+
+# balanced panel:
+pvq <- pvq[year >= 1960, .(iso3c, year, popwork, gdppc)] %>%
+    pivot_wider(.,
+                names_from = "year",
+                values_from = c("popwork", "gdppc"))
+tolongnames <- setdiff(names(pvq), "iso3c")
+pvq <- pvq %>% 
+    na.omit() %>%
+    pivot_longer(cols = all_of(tolongnames)) %>%
+    separate(col = name, sep = "_", into = c("variable", "year")) %>% 
+    as.data.table()
+pvq <- pvq %>% 
+    pivot_wider(values_from = "value", names_from = "variable") %>% 
+    as.data.table()
+pvq[,n:=.N,by="iso3c"]
+waitifnot(max(pvq$n)==min(pvq$n))
+pvq$n <- NULL
+
+# avg GDP per capita for negative vs. positive 5 year periods
+pvq <- pvq[order(iso3c, year)]
+for (i in c("popwork", "gdppc")){
+pvq[,c(glue("gr_{i}")):=eval(as.name(i)) / shift(eval(as.name(i)))-1, by = "iso3c"]
+}
+pvq[gr_popwork<0,neg_popwork:=1]
+pvq[gr_popwork>=0,neg_popwork:=0]
+pvq <- pvq[, .(gr_gdppc = mean((1+gr_gdppc) ^ (1 / 5)-1)), by = c("year", "neg_popwork")]
+pvq <- na.omit(pvq) 
+pvq[neg_popwork==1,name:="Countries with negative prime-age population growth"]
+pvq[neg_popwork==0,name:="Countries with positive prime-age population growth"]
+pvq$year <- as.numeric(pvq$year)
+
+# plot
+# graph
+PLOT <- ggplot(pvq) +
+    geom_bar(aes(
+        x = year,
+        y = gr_gdppc,
+        color = name,
+        fill = name,
+        group = name
+    ),
+    # width = 2,
+    stat = "identity")+
+    my_custom_theme +
+    labs(
+        subtitle = "Annualized GDP per capita growth",
+        x = "",
+        y = ""
+    ) + 
+    scale_color_manual(values = c("firebrick4", "dodgerblue2"),
+                       labels = c("Countries with negative prime-age population growth", 
+                                  "Countries with positive prime-age population growth")) + 
+    scale_fill_manual(values = c("red2", "grey96"),
+                      labels = c("Countries with negative prime-age population growth", 
+                                 "Countries with positive prime-age population growth")) + 
+    facet_wrap(~name) + 
+    geom_hline(yintercept = 0) + 
+    theme(legend.position = "none") + 
+    theme(axis.text.y = element_text(
+        size = 12,
+        vjust = 0.5,
+        margin = unit(c(
+            t = 0,
+            r = 1,
+            b = 0,
+            l = 0
+        ), "mm"),
+        color = "gray57"
+    )) + 
+    scale_x_continuous(breaks = seq(1965, 2020, 5)) + 
+    scale_y_continuous(breaks = seq(-0.04,0.04,0.01))
+
+setwd(overleaf_dir)
+ggsave(
+    glue("{overleaf_dir}/gdppc_country_papg.pdf"),
+    PLOT,
+    width = 12,
+    height = 5
+)
+setwd(input_dir)
 
 #  one concern about the use of fertility as an IV for number of workers 20-65
 #  is that it doesn't include immigrants *into* a country what does the
 #  literature say about growth regressions of this sort?
-
-#  --------------------
-#  When did they happen (just a histogram by five year period)? How large the
-#  percentage drop in workers (*median* size by five year period)
-
-df <- rio::import("final_derived_labor_growth.dta") %>% dfdt()
 
 # Plots of HICs -----------------------------------------------------------
 
@@ -198,33 +358,3 @@ plot <- ggplot(data = j) +
 # setwd(output_dir)
 ggsave(glue("{overleaf_dir}/HIC_UMIC_10yr_event.pdf"), plot, width = 10, height = 10)
 # setwd(input_dir)
-
-# ------------------------------------------------------------------------------------------
-#  What were economic growth rates during those five year periods compared to
-#  the (last) (ten year?) period before labor force growth was negative?
-# 
-#  What were economic growth rates during those five year periods compared to
-#  the global (and country income group) average growth?
-#  ---------------------------------------------
-# 
-#  What happened to government revenues and deficits during those periods
-#  compared to prior?
-# 
-#  What happened to interest rates and stock market returns?
-# 
-#  What happened to the unemployment rate total labor force participation and
-#  female labor force participation?
-# 
-#  Take out cases which overlap with a country being at war (https:#
-#  correlatesofwar.org/data-sets) and then take out low and lower middle income
-#  countries and see if that makes a difference.
-# 
-#  Look forward: according to the UN population forecasts, how many countries in
-#  each forthcoming five year period will see declining working age population?
-#  How large the percentage drop in workers (*median* size by five year period)
-# 
-#  "instrument' or just use the predicted change in working age population from
-#  ten years prior (e.g. us value for population aged 10-54 in 1980 as the value
-#  for population aged 20-64 in 1990) and/or try 20 year lag.
-# 
-#  Thanks!
