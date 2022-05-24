@@ -19,8 +19,8 @@ foreach war_var in "Including" "Excluding" {
 foreach var in rgdp_pwt fm_gov_exp rev_inc_sc cpi yield_10yr index_inf_adj flp lp {
 if ($test_run == 1) {
 	local war_var "Including"
-	local income_var "UMIC"
-	local var cpi
+	local income_var "LIC_LMIC"
+	local var lp
 	local within_country_var "Within"
 }
 
@@ -72,7 +72,7 @@ if ($test_run == 1) {
 		keep if NEG_popwork == "Negative"
 		
 		keep iso3c year aveP1_`var' aveP1_`var'_bef
-		pause 0
+		pause 6K62V "`within_country_var'" "`income_var'" "`war_var'" "`var'"
 		naomit
 		ds
 		local varlist `r(varlist)'
@@ -81,7 +81,7 @@ if ($test_run == 1) {
 		foreach i in `to_gather' {
 			rename `i' ave`i'
 		}
-		pause 1
+		pause 8Kmon "`within_country_var'" "`income_var'" "`war_var'" "`var'"
 		summ iso3c year
 		local num_obs `r(N)'
 		if (`num_obs' > 0) {
@@ -89,17 +89,18 @@ if ($test_run == 1) {
 			replace period = "Negative" if period == "aveP1_`var'"
 			replace period = "Positive" if period == "aveP1_`var'_bef"
 			rename ave ave_growth
-		}
 		
 		// make sure we're equal-weighting each country when we're doing 
 		// "within" aggregation
-		gcollapse (mean) ave_growth, by(iso3c period)
+		gcollapse (mean) ave_growth, by(iso3c period year)
+		}
+		
 	}
 	else if ("`within_country_var'" == "Between") {
 		keep iso3c year aveP1_`var' NEG_popwork
-		pause 1
+		pause P60ec 
 		naomit
-		pause 2
+		pause l9YtQ "`within_country_var'" "`income_var'" "`war_var'" "`var'"
 		rename (aveP1_`var' NEG_popwork) (ave_growth period)
 	}
 	
@@ -107,7 +108,7 @@ if ($test_run == 1) {
 	summ iso3c year
 	local num_obs `r(N)'
 	if (`num_obs' > 0) {
-		pause 3 "`within_country_var'" "`income_var'" "`war_var'" "`var'"
+		pause l4FOo "`within_country_var'" "`income_var'" "`war_var'" "`var'"
 		
 		// get country-years
 		summ iso3c year if period == "Negative"
@@ -219,7 +220,7 @@ order label within_country_var period HIC_w_inc UMIC_w_inc
 // output to latex:
 
 #delimit ;
-texsave * using "$output/table1.txt", 
+texsave * using "$output/table1.tex", 
 nonames replace frag 
 headerlines(
 "\multicolumn{1}{l}{Variable} & \multicolumn{1}{p{13.285em}}{Aggregation Method} & Labor Force Growth & HIC   & UMIC"
@@ -234,7 +235,7 @@ footnote("NOTE--- The \textit{between} aggregation simply takes averages of all 
 
 // adjust the TXT output file:
 // adjustments to the base latex file:
-import delimited "$output/table1.txt", clear
+import delimited "$output/table1.tex", clear
 // replace v1 = subinstr(v1, "\end{tabularx}","\end{tabularx}\end{adjustbox}",1) 
 replace v1 = subinstr(v1, "\begin{tabularx}{1\textwidth}{lCCCCCCCCC}", "\begin{tabularx}{1\textwidth}{p{3cm} c X X X X X X X X }",1) 
 replace v1 = subinstr(v1, "{\footnotesize", "{\scriptsize\hfill \textit{Number of country-years are in parentheses.}",1) 
@@ -242,7 +243,7 @@ replace v1 = subinstr(v1, "{\footnotesize", "{\scriptsize\hfill \textit{Number o
 // replace v1 = subinstr(v1, "\begin{tabularx}","\begin{adjustbox}{angle=90}\begin{tabularx}",1)
 
 // replace that output file once more:
-outfile using "$output/table1.txt", noquote replace wide
+outfile using "$output/table1.tex", noquote replace wide
 
 // Analysis of only HICs ---------------------------------------------------
 use "$input/final_derived_labor_growth.dta", clear
