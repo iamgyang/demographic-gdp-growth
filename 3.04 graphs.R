@@ -59,7 +59,7 @@ plot <- df %>%
     labs(y = "", subtitle = "Percent of global population living in countries where growth in working age population (15-64) is expected \nto grow or decline") +
     scale_color_stata()
 
-ggsave(glue("{overleaf_dir}/Number of Population Growth and Decline Line.png"), plot, width = 9, height = 7)
+ggsave(glue("{overleaf_dir}/pop_g_line.pdf"), plot, width = 9, height = 7)
 
 # Countries with declining workers vs. those without ----------------------
 pvq <- as.data.table(rio::import("un_pop_estimates_cleaned.dta"))
@@ -227,6 +227,106 @@ ggsave(
     height = 5
 )
 setwd(input_dir)
+
+# Government Revenue Growth ----------------------------------------
+
+pvq <- as.data.table(rio::import("un_pop_estimates_cleaned.dta"))
+
+# only 5 year periods
+pvq <- pvq[year%%5==0]
+
+# get government revenue
+pvq_rev <- as.data.table(rio::import("clean_grd.dta"))
+pvq_rev <- pvq_rev[,.(iso3c, year, govrev = rev_inc_sc)]
+check_dup_id(pvq_rev, c("iso3c", "year"))
+
+# merge
+pvq <- merge(pvq, pvq_rev, by = c('iso3c','year'),all.x = T)
+pvq <- na.omit(pvq)
+pvq <- pvq[,.(iso3c, year, govrev, popwork)]
+pvq <- pvq[order(iso3c, year)]
+
+# balanced panel:
+pvq <- pvq[year >= 1960 & year <= 2022, .(iso3c, year, popwork, govrev)] %>%
+    pivot_wider(.,
+                names_from = "year",
+                values_from = c("popwork", "govrev"))
+tolongnames <- setdiff(names(pvq), "iso3c")
+pvq <- pvq %>% 
+    na.omit() %>%
+    pivot_longer(cols = all_of(tolongnames)) %>%
+    separate(col = name, sep = "_", into = c("variable", "year")) %>% 
+    as.data.table()
+pvq <- pvq %>% 
+    pivot_wider(values_from = "value", names_from = "variable") %>% 
+    as.data.table()
+pvq[,n:=.N,by="iso3c"]
+waitifnot(max(pvq$n)==min(pvq$n))
+pvq$n <- NULL
+
+# avg GDP per capita for negative vs. positive 5 year periods
+pvq <- pvq[order(iso3c, year)]
+for (i in c("popwork", "govrev")){
+pvq[,c(glue("gr_{i}")):=eval(as.name(i)) / shift(eval(as.name(i)))-1, by = "iso3c"]
+}
+pvq[gr_popwork<0,neg_popwork:=1]
+pvq[gr_popwork>=0,neg_popwork:=0]
+pvq <- pvq[, .(gr_govrev = mean((1+gr_govrev) ^ (1 / 5)-1)), by = c("year", "neg_popwork")]
+pvq <- na.omit(pvq) 
+pvq[neg_popwork==1,name:="Countries with negative prime-age population growth"]
+pvq[neg_popwork==0,name:="Countries with positive prime-age population growth"]
+pvq$year <- as.numeric(pvq$year)
+
+# plot
+# graph
+PLOT <- ggplot(pvq) +
+    geom_bar(aes(
+        x = year,
+        y = gr_govrev,
+        color = name,
+        fill = name,
+        group = name
+    ),
+    # width = 2,
+    stat = "identity")+
+    my_custom_theme +
+    labs(
+        subtitle = "Annualized government revenue (% GDP) growth",
+        x = "",
+        y = ""
+    ) + 
+    scale_color_manual(values = c("firebrick4", "dodgerblue2"),
+                       labels = c("Countries with negative prime-age population growth", 
+                                  "Countries with positive prime-age population growth")) + 
+    scale_fill_manual(values = c("red2", "grey96"),
+                      labels = c("Countries with negative prime-age population growth", 
+                                 "Countries with positive prime-age population growth")) + 
+    facet_wrap(~name) + 
+    geom_hline(yintercept = 0) + 
+    theme(legend.position = "none") + 
+    theme(axis.text.y = element_text(
+        size = 12,
+        vjust = 0.5,
+        margin = unit(c(
+            t = 0,
+            r = 1,
+            b = 0,
+            l = 0
+        ), "mm"),
+        color = "gray57"
+    )) + 
+    scale_x_continuous(breaks = seq(1965, 2020, 5)) + 
+    scale_y_continuous(breaks = seq(-0.04,0.04,0.01))
+
+setwd(overleaf_dir)
+ggsave(
+    glue("{overleaf_dir}/govrev_country_papg.pdf"),
+    PLOT,
+    width = 12,
+    height = 5
+)
+setwd(input_dir)
+
 
 #  one concern about the use of fertility as an IV for number of workers 20-65
 #  is that it doesn't include immigrants *into* a country what does the
