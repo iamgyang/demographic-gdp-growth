@@ -25,8 +25,7 @@ list.of.packages <- c( "base", "car", "cowplot", "dplyr", "ggplot2",
     "huxtable", "haven", "ResourceSelection", "betareg", "quantreg",
     "margins", "plm", "collapse", "kableExtra", "tinytex", "LambertW",
     "scales", "stringr", "imputeTS", "shadowtext", "pdftools", "glue",
-    "purrr", "OECD", "RobustLinearReg", "forcats", "WDI", "xlsx",
-    "readstata13")
+    "purrr", "OECD", "RobustLinearReg", "forcats", "WDI", "readstata13")
 
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[, "Package"])]
 if (length(new.packages)) install.packages(new.packages, dependencies = TRUE)
