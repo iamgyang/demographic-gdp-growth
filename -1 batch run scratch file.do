@@ -3,9 +3,10 @@ pause off
 do "0 master.do"
 do "0 programs and functions.do"
 do "1 clean_all.do"
-do "2 merge and checks.do"
-do "3 analysis - HIC event.do"
-do "3 analysis - table.do"
+do "2.00 merge and checks.do"
+do "2.01 summary table.do"
+do "3.02 analysis - HIC event.do"
+do "3.03 analysis - table.do"
 
 // run like so:
 // cd "C:\Users\gyang\Dropbox\CGD GlobalSat\HF_measures\input"
