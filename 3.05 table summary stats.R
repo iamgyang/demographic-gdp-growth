@@ -46,3 +46,4 @@ kbl_smmry_numeric <- smmry_tbl %>%
 setwd(overleaf_dir)
 save_kable(kbl_smmry_numeric, "smmry_tbl.tex", header = FALSE)
 setwd(input_dir)
+
