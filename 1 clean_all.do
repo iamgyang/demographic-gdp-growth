@@ -445,7 +445,7 @@ drop if ///
 	missing(yield_10yr) & ///
 	missing(yield_3mo) & ///
 	missing(index_inf_adj)
-
+ijhujkvghjkvcjhvbhj
 save "$input/clean_stock_interest.dta", replace
 
 // Female labor force participation rate ------------------------------------
