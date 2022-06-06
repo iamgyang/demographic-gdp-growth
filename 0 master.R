@@ -49,7 +49,7 @@ overleaf_dir <- glue("C:/Users/{user}/Dropbox/Apps/Overleaf/Demographic Labor/")
 setwd(input_dir)
 
 # source(paste0(root_dir, "code/", "helper_functions.R"))
-source(paste0("C:/Users/", user, "/Dropbox/Coding_General/personal.functions.R"))
+source(paste0("{code_dir}/personal.functions.R"))
 
 # Run everything ----------------------------------------------------------
 
