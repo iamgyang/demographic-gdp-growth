@@ -128,7 +128,7 @@ gen year_mod = mod(year, 1)
 keep if year_mod == 0
 drop year_mod
 
-// Take a lag of that sum & find the percent change in population.
+// making % changes in variables
 fillin iso3c year
 drop _fillin
 foreach i in rgdp_pwt popwork rev_inc_sc fm_gov_exp cpi yield_10yr yield_3mo index_inf_adj flp lp gov_deficit_pc_gdp gov_exp_TOT {
