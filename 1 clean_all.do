@@ -1,26 +1,26 @@
+**********************************************************************
 // UN population estimates -------------------------------------------
-
+**********************************************************************
 import delimited "$input/un_WPP2019_PopulationByAgeSex_Medium.csv", clear
 keep if variant == "Medium"
 keep location time agegrp agegrpstart agegrpspan poptotal
 
+replace poptotal = poptotal * 1000   // Convert from thousands
+rename (location time) (country year)
+
 preserve
 	keep if agegrpstart < 65 & agegrpstart >= 15
-	gcollapse (sum) poptotal, by(location time)
+	gcollapse (sum) poptotal, by(country year)
 	rename poptotal popwork
-	replace popwork = popwork * 1000
-	rename location country
-	check_dup_id "country time"
+	isid country year
 	tempfile un_working_pop
 	save `un_working_pop'
 restore
 
-gcollapse (sum) poptotal, by(location time)
-replace poptotal = poptotal * 1000
-rename location country
+gcollapse (sum) poptotal, by(country year)
 
-mmerge country time using `un_working_pop'
-check_dup_id "country time"
+mmerge country year using `un_working_pop', type(1:1)
+isid country year
 assert _merge == 3
 drop _merge
 
@@ -38,20 +38,22 @@ if ("$check" == "yes") {
 	br
 	pause "does everything look okay?"
 	restore
-	pause off    
+	pause off
 }
 
 // drop country
-rename (time) (year)
 
 sort iso3c year
 save "$input/un_pop_estimates_cleaned.dta", replace
 
+**********************************************************************
 // PWT GDP (growth rates) -----------------------------------------------------
+**********************************************************************
 
 use "$input/pwt100.dta", clear
+
 keep rgdpna countrycode year
-drop if rgdpna == .
+drop if missing(rgdpna)
 rename (rgdpna countrycode) (rgdp_pwt iso3c)
 
 sort iso3c year
@@ -74,10 +76,10 @@ save "$input/wdi_gdp_cleaned.dta", replace
 use "$input/pwt_cleaned.dta", clear
 mmerge iso3c year using "$input/wdi_gdp_cleaned.dta"
 sort iso3c year
-gen temp_check_var = 1 if mi(rgdp_pwt)
+gen temp_check_var = 1 if missing(rgdp_pwt)
 
 // extrapolate based on WDI
-bys iso3c: replace rgdp_pwt = rgdp_pwt[_n-1]*rgdp_wdi_gr if mi(rgdp_pwt) & iso3c == iso3c[_n-1]
+bys iso3c (year): replace rgdp_pwt = rgdp_pwt[_n - 1] * rgdp_wdi_gr 	if missing(rgdp_pwt) & iso3c == iso3c[_n - 1]
 
 // checks:
 sort iso3c year
@@ -161,8 +163,8 @@ save "$input/clean_grd.dta", replace
 
 // From IMF fiscal monitor (FM) ---------------------------------------------
 import delimited "$input/IMF_fiscal_monitor.csv", clear
-keep ïcountryname countrycode timeperiod expenditureofgdpg_x_g01_gdp_pt revenueofgdpggr_g01_gdp_pt
-rename ïcountryname country
+keep countryname countrycode timeperiod expenditureofgdpg_x_g01_gdp_pt revenueofgdpggr_g01_gdp_pt
+rename countryname country
 conv_ccode country
 replace iso3c = "HKG" if country =="China, P.R.: Hong Kong"
 replace iso3c = "CHN" if country =="China, P.R.: Mainland"
@@ -200,9 +202,9 @@ program imf_clean_timeseries_GFS
 		rename `i' `lab'
 		destring `lab', replace
 	}
-	keep ïcountryname countrycode sectorname x*
+	keep countryname countrycode sectorname x*
 	capture quietly drop x
-	reshape long x, i(ïcountryname countrycode sectorname) j(year, string)
+	reshape long x, i(countryname countrycode sectorname) j(year, string)
 	keep if sectorname == "Budgetary central government"
 	check_dup_id "countrycode year"
 	destring year, replace
@@ -210,7 +212,7 @@ program imf_clean_timeseries_GFS
 	drop if `NAME' == .
 	drop sectorname
 
-	rename ïcountryname country
+	rename countryname country
 	conv_ccode country
 	if (1==1) {
 		replace iso3c = "AFG" if country == "Afghanistan, Islamic Rep. of"
@@ -222,9 +224,11 @@ program imf_clean_timeseries_GFS
 		replace iso3c = "CAF" if country == "Central African Rep."
 		replace iso3c = "MAC" if country == "China, P.R.: Macao"
 		replace iso3c = "CHN" if country == "China, P.R.: Mainland"
+		replace iso3c = "CHN" if country == "China, P.R.: Hong Kong"
 		replace iso3c = "COD" if country == "Congo, Dem. Rep. of the"
 		replace iso3c = "HRV" if country == "Croatia, Rep. of"
 		replace iso3c = "CIV" if country == "CÃ´te d'Ivoire"
+		replace iso3c = "CIV" if country == "Côte d'Ivoire"
 		replace iso3c = "EGY" if country == "Egypt, Arab Rep. of"
 		replace iso3c = "GNQ" if country == "Equatorial Guinea, Rep. of"
 		replace iso3c = "EST" if country == "Estonia, Rep. of"
@@ -233,6 +237,7 @@ program imf_clean_timeseries_GFS
 		replace iso3c = "FJI" if country == "Fiji, Rep. of"
 		replace iso3c = "IRN" if country == "Iran, Islamic Rep. of"
 		replace iso3c = "KAZ" if country == "Kazakhstan, Rep. of"
+		replace iso3c = "XKX" if country == "Kosovo, Rep. of"
 		replace iso3c = "LAO" if country == "Lao People's Dem. Rep."
 		replace iso3c = "LSO" if country == "Lesotho, Kingdom of"
 		replace iso3c = "MDG" if country == "Madagascar, Rep. of"
@@ -247,6 +252,8 @@ program imf_clean_timeseries_GFS
 		replace iso3c = "SRB" if country == "Serbia, Rep. of"
 		replace iso3c = "SVN" if country == "Slovenia, Rep. of"
 		replace iso3c = "STP" if country == "SÃ£o TomÃ© and PrÃ­ncipe, Dem. Rep. of"
+		replace iso3c = "STP" if country == "São Tomé and Príncipe, Dem. Rep. of"
+		replace iso3c = "SVK" if country == "Slovak Rep."
 		replace iso3c = "TJK" if country == "Tajikistan, Rep. of"
 		replace iso3c = "TZA" if country == "Tanzania, United Rep. of"
 		replace iso3c = "TLS" if country == "Timor-Leste, Dem. Rep. of"
@@ -254,13 +261,68 @@ program imf_clean_timeseries_GFS
 		replace iso3c = "YEM" if country == "Yemen, Rep. of"
 	}
 
-	check_dup_id "iso3c countrycode year"
-	check_dup_id "iso3c year"
-	check_dup_id "countrycode year"
+	isid iso3c countrycode year
+	isid iso3c year
+	isid countrycode year
 	
 	sort iso3c year
 	
 end
+
+/* ======= temp: ======
+import delimited "$input/imf_govt_finance_statistics/GFSE_09-11-2021 22-01-15-19_timeSeries.csv", clear
+rename countryname country
+conv_ccode country
+if (1==1) {
+		replace iso3c = "AFG" if country == "Afghanistan, Islamic Rep. of"
+		replace iso3c = "ARM" if country == "Armenia, Rep. of"
+		replace iso3c = "AZE" if country == "Azerbaijan, Rep. of"
+		replace iso3c = "BHR" if country == "Bahrain, Kingdom of"
+		replace iso3c = "BLR" if country == "Belarus, Rep. of"
+		replace iso3c = "CPV" if country == "Cabo Verde"
+		replace iso3c = "CAF" if country == "Central African Rep."
+		replace iso3c = "MAC" if country == "China, P.R.: Macao"
+		replace iso3c = "CHN" if country == "China, P.R.: Mainland"
+		replace iso3c = "CHN" if country == "China, P.R.: Hong Kong"
+		replace iso3c = "COD" if country == "Congo, Dem. Rep. of the"
+		replace iso3c = "HRV" if country == "Croatia, Rep. of"
+		replace iso3c = "CIV" if country == "CÃ´te d'Ivoire"
+		replace iso3c = "CIV" if country == "Côte d'Ivoire"
+		replace iso3c = "EGY" if country == "Egypt, Arab Rep. of"
+		replace iso3c = "GNQ" if country == "Equatorial Guinea, Rep. of"
+		replace iso3c = "EST" if country == "Estonia, Rep. of"
+		replace iso3c = "SWZ" if country == "Eswatini, Kingdom of"
+		replace iso3c = "ETH" if country == "Ethiopia, The Federal Dem. Rep. of"
+		replace iso3c = "FJI" if country == "Fiji, Rep. of"
+		replace iso3c = "IRN" if country == "Iran, Islamic Rep. of"
+		replace iso3c = "KAZ" if country == "Kazakhstan, Rep. of"
+		replace iso3c = "XKX" if country == "Kosovo, Rep. of"
+		replace iso3c = "LAO" if country == "Lao People's Dem. Rep."
+		replace iso3c = "LSO" if country == "Lesotho, Kingdom of"
+		replace iso3c = "MDG" if country == "Madagascar, Rep. of"
+		replace iso3c = "MHL" if country == "Marshall Islands, Rep. of the"
+		replace iso3c = "MDA" if country == "Moldova, Rep. of"
+		replace iso3c = "MOZ" if country == "Mozambique, Rep. of"
+		replace iso3c = "NRU" if country == "Nauru, Rep. of"
+		replace iso3c = "MKD" if country == "North Macedonia, Republic of"
+		replace iso3c = "PLW" if country == "Palau, Rep. of"
+		replace iso3c = "POL" if country == "Poland, Rep. of"
+		replace iso3c = "SMR" if country == "San Marino, Rep. of"
+		replace iso3c = "SRB" if country == "Serbia, Rep. of"
+		replace iso3c = "SVN" if country == "Slovenia, Rep. of"
+		replace iso3c = "STP" if country == "SÃ£o TomÃ© and PrÃ­ncipe, Dem. Rep. of"
+		replace iso3c = "STP" if country == "São Tomé and Príncipe, Dem. Rep. of"
+		replace iso3c = "SVK" if country == "Slovak Rep."
+		replace iso3c = "TJK" if country == "Tajikistan, Rep. of"
+		replace iso3c = "TZA" if country == "Tanzania, United Rep. of"
+		replace iso3c = "TLS" if country == "Timor-Leste, Dem. Rep. of"
+		replace iso3c = "UZB" if country == "Uzbekistan, Rep. of"
+		replace iso3c = "YEM" if country == "Yemen, Rep. of"
+	}
+	
+br if missing( iso3c)
+* ======= temp ^^^ ====== */
+
 
 // IMF Global Finance Statistics - Revenue & Expense -----------------------
 imf_clean_timeseries_GFS "$input/imf_govt_finance_statistics/GFSE_09-11-2021 22-01-15-19_timeSeries.csv" "Percent of GDP" "Value" "Expense" "gfs_gov_exp"
