@@ -54,8 +54,8 @@ interest, the years of interest
 */
 use "$input/final_derived_labor_growth.dta", clear
 keep if income_1989 == "HIC" | income_1989 == "UMIC"
-foreach i in `aging_isos' {
-	drop if iso3c == "`i'"
+foreach country in `aging_isos' {
+	drop if iso3c == "`country'"
 }
 
 gen count = 1
@@ -73,8 +73,8 @@ loc vars rgdp_pwt rgdppc_pwt fm_gov_exp rev_inc_sc cpi yield_10yr index_inf_adj 
 keep iso3c year `vars'
 
 // for each variable, I need a fixed sample:
-foreach i in `vars' {
-    rename `i' stub_`i'
+foreach var in `vars' {
+    rename `var' stub_`var'
 }
 reshape long stub_, i(iso3c year) j(var, string)
 naomit
@@ -162,8 +162,8 @@ bys iso3c: fillmissing year_st, with(next)
 keep if year >= year_st & !mi(year_st)
 
 // pivot longer for future merge:
-foreach i in rgdp_pwt rgdppc_pwt fm_gov_exp rev_inc_sc cpi yield_10yr index_inf_adj flp lp {
-    rename `i'_hic stub_`i'
+foreach var in rgdp_pwt rgdppc_pwt fm_gov_exp rev_inc_sc cpi yield_10yr index_inf_adj flp lp {
+    rename `var'_hic stub_`var'
 }
 reshape long stub_, i(iso3c year) j(var, string)
 sort var iso3c year
@@ -179,8 +179,8 @@ use "$input/final_derived_labor_growth.dta", clear
 keep iso3c year poptotal rgdp_pwt rgdppc_pwt fm_gov_exp rev_inc_sc cpi yield_10yr index_inf_adj flp lp
 
 // pivot longer for merge:
-foreach i in rgdp_pwt rgdppc_pwt fm_gov_exp rev_inc_sc cpi yield_10yr index_inf_adj flp lp {
-    rename `i' stub_`i'
+foreach var in rgdp_pwt rgdppc_pwt fm_gov_exp rev_inc_sc cpi yield_10yr index_inf_adj flp lp {
+    rename `var' stub_`var'
 }
 reshape long stub_, i(iso3c year) j(var, string)
 sort var iso3c year
