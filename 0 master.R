@@ -16,16 +16,18 @@ rm(list = ls())
 
 
 # Packages ---------------------------------------------------------------
+# "dummies" was in the list, but it now
+# gives the error: "There is no package called 'dummies'"
 list.of.packages <- c( "base", "car", "cowplot", "dplyr", "ggplot2",
     "ggthemes", "graphics", "grDevices", "grid", "gridExtra", "gvlma", "h2o",
     "lubridate", "MASS", "readxl", "rio", "rms", "rsample", "stats",
     "tidyr", "utils", "zoo", "xtable", "stargazer", "data.table",
     "ggrepel", "foreign", "fst", "countrycode", "wbstats", "quantmod",
-    "R.utils", "leaps", "bestglm", "dummies", "caret", "jtools",
+    "R.utils", "leaps", "bestglm", "caret", "jtools",
     "huxtable", "haven", "ResourceSelection", "betareg", "quantreg",
     "margins", "plm", "collapse", "kableExtra", "tinytex", "LambertW",
     "scales", "stringr", "imputeTS", "shadowtext", "pdftools", "glue",
-    "purrr", "OECD", "RobustLinearReg", "forcats", "WDI", "readstata13")
+    "purrr", "OECD", "RobustLinearReg", "forcats", "WDI", "readstata13") 
 
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[, "Package"])]
 if (length(new.packages)) install.packages(new.packages, dependencies = TRUE)
@@ -39,17 +41,22 @@ theme_set(theme_clean() +
 # Directories -------------------------------------------------------------
 
 # You will have to edit this to be your own computer's working directories:
-user<-Sys.info()["user"]
-root_dir <- paste0("C:/Users/", user, "/Dropbox/CGD/Projects/dem_neg_labor/")
-input_dir <- paste0(root_dir, "input")
-output_dir <- paste0(root_dir, "output")
-code_dir <- paste0(root_dir, "labor-growth")
-overleaf_dir <- glue("C:/Users/{user}/Dropbox/Apps/Overleaf/Demographic Labor/")
+user <- Sys.info()["user"]
+if (user == "gyang") {
+    root_dir <- paste0("C:/Users/", user, "/Dropbox/CGD/Projects/dem_neg_labor")
+    overleaf_dir <- glue("C:/Users/{user}/Dropbox/Apps/Overleaf/Demographic Labor")
+} else if (user == "zgehan") {
+    root_dir <- file.path("C:/Users/zgehan/CGD Education Dropbox/Zachary Gehan/80 Inherited Folders/dem_neg_labor")
+    overleaf_dir <- file.path("C:/Users/zgehan/CGD Education Dropbox/Zachary Gehan/Apps/Overleaf/Demographic Labor")
+}
+input_dir <- file.path(root_dir, "input")
+output_dir <- file.path(root_dir, "output")
+code_dir <- file.path(root_dir, "labor-growth")
 
 setwd(input_dir)
 
 # source(paste0(root_dir, "code/", "helper_functions.R"))
-source(paste0("{code_dir}/personal.functions.R"))
+source(file.path(code_dir, "personal.functions.R"))
 
 # Run everything ----------------------------------------------------------
 
