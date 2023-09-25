@@ -1,18 +1,53 @@
 smmry_tbl <- as.data.table(readstata13::read.dta13("summary_statistics_table.dta"))
 orig_names <- names(smmry_tbl)
-new_names <- orig_names %>% gsub("_", " ", ., fixed = T) %>% str_to_title()
+new_names <- orig_names %>% gsub("_", " ", ., fixed = TRUE) %>% str_to_title()
 names(smmry_tbl) <- new_names
 
-kbl_smmry_numeric <- smmry_tbl %>% 
+smmry_tbl <- smmry_tbl %>%
+    rename(
+        " " = "Variable Label",
+        "SD" = "Sd",
+        "Countries" = "Number Of Countries",
+        "Observations" = "Number Of Observations"
+    ) %>%
+    mutate( 
+        " " = case_match(
+            ` `, 
+            "GDP" ~ "GDP (Billions)",
+            "GDP per capita" ~ "GDP per capita",
+            "Total Population" ~ "Total Population (Millions)",
+            "Total Working-Age Population" ~ "Total Working-Age Population (Millions)",
+            .default = ` `
+        )
+    )
+
+pop_units <- 1000000  # Millions (10^6)
+gdp_units <- 1000000000  # Billions (10^9)
+
+smmry_tbl[
+    ` ` == "GDP (Billions)",
+    `:=`(Mean = Mean / gdp_units, SD = SD / gdp_units)
+][
+    ` ` %chin% c("Total Population (Millions)", "Total Working-Age Population (Millions)"),
+    `:=`(Mean = Mean / pop_units, SD = SD / pop_units)
+]
+
+
+#smmry_tbl[abs(Mean) <= 10^6, Mean := as.numeric(format(Mean, digits = 1, scientific = FALSE))]
+#smmry_tbl[abs(Mean) > 10^6, Mean := as.numeric(format(Mean, scientific = TRUE))]
+
+
+kbl_smmry_numeric <- smmry_tbl %>%
     kbl(
         "latex",
         caption = "Summary Statistics",
         label = "smmry_tbl",
         booktabs = TRUE,
         longtable = TRUE,
-        digits = 0,
+        digits = 1,
         align = "c",
-        linesep = ""
+        linesep = "",
+        format.args = list(scientific = FALSE)
     ) %>%
     kableExtra::kable_styling(
         position = "center",
@@ -43,7 +78,5 @@ kbl_smmry_numeric <- smmry_tbl %>%
 
 #collapse_rows(columns = 1,latex_hline = "major", valign = "middle")
 
-setwd(overleaf_dir)
-save_kable(kbl_smmry_numeric, "smmry_tbl.tex", header = FALSE)
-setwd(input_dir)
+save_kable(kbl_smmry_numeric, file.path(overleaf_dir, "smmry_tbl.tex"), header = FALSE)
 
