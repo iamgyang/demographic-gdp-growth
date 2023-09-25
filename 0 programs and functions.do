@@ -4,10 +4,10 @@ quietly capture program drop check_dup_id
 program check_dup_id
 	args id_vars
 	preserve
-	keep `id_vars'
-	sort `id_vars'
-    quietly by `id_vars':  gen dup = cond(_N==1,0,_n)
-	assert dup == 0
+		keep `id_vars'
+		sort `id_vars'
+		quietly by `id_vars':  gen dup = cond(_N==1,0,_n)
+		assert dup == 0
 	restore
 	end
 
