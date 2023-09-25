@@ -147,7 +147,7 @@ my_custom_theme <- list(
             ), "mm"),
             color = "gray57"
         ),
-        axis.line.x = element_line(size = 0.5, color = "grey50"),
+        axis.line.x = element_line(linewidth = 0.5, color = "grey50"),
         axis.line.y = element_blank(),
         text = element_text(size = 16),
         legend.key.size = unit(.5, "line")
