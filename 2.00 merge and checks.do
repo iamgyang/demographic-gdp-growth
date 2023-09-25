@@ -21,27 +21,40 @@ levelsof datasets, local(datasets)
 
 use "$input/pwt_cleaned.dta", clear
 
-foreach i in `datasets' {
-	di "`i'"
-	mmerge iso3c year using "$input/`i'"
+foreach dtafile in `datasets' {
+	di "`dtafile'"
+	mmerge iso3c year using "$input/`dtafile'"
 	drop _merge
 }
 
-check_dup_id "iso3c year"
-fillin iso3c year
-drop _fillin country
+isid iso3c year
+fillin iso3c year  // I'll assume this is necessary for something later, but if not it doesn't make much sense to do--dataset goes from 11mb to 73mb.
+drop _fillin // country  // I'm going to leave country as the full names are sometimes useful. 
 
 // GDP per capita:
 gen rgdppc_pwt = rgdp_pwt / poptotal
+label variable rgdppc_pwt "GDP per capita"
+
+// Generate CPI and Stock Index *growth rates* instead of raw values, for summary table
+/* Ideal is to xtset and use time series operators, but I don't want to risk breaking later code:
+encode(iso3c), generate(country_code)
+xtset country_code year, yearly */
+bys iso3c (year): 	gen cpi_growth ///
+						= 100 * ((cpi / cpi[_n - 1]) - 1) 						if (_n != 1) & (!missing(cpi)) & (year[_n] == (year[_n-1] + 1))
+bys iso3c (year): 	gen stock_index_growth ///
+						= 100 * ((index_inf_adj / index_inf_adj[_n - 1]) - 1) 	if (_n != 1) & (!missing(index_inf_adj)) & (year[_n] == (year[_n-1] + 1))
+					
+label variable cpi_growth  "Consumer Price Index YoY Growth Rate (%)" 
+label variable stock_index_growth "Stock Price Index YoY Growth Rate (%)"
 
 // TO DO: is the GRD database / OECD database about CENTRAL gov't or about local / STATE govt's??
 label variable caution_GRD "Caution notes from Global Revenue Database data"
-label variable gov_deficit_pc_gdp "Government deficit  (% GDP)"
-label variable gov_rev_pc_gdp "Total government revenue (% GDP)"
-label variable gov_tax_rev_pc_gdp "Total government tax revenue (% GDP)"
+label variable gov_deficit_pc_gdp "Govt deficit  (% GDP)"
+label variable gov_rev_pc_gdp "Total govt revenue (% GDP)"
+label variable gov_tax_rev_pc_gdp "Total govt tax revenue (% GDP)"
 label variable income "Historical WB income classificaiton"
 label variable iso3c "ISO3c country code"
-label variable rgdp_pwt "GDP, PPP (PWT)"
+label variable rgdp_pwt "GDP"
 
 // Baker Bloom Terry
 // label variable l1avgret "Stock returns (normalized & CPI inflation adjusted); cumul. return in prior 4 quarters"
@@ -55,9 +68,9 @@ label variable lp "Total Labor Force Participation (%)"
 label variable flp "Female Labor Force Participation (%)"
 
 // UN GRD
-label variable rev_inc_sc "Government revenue including Social Contributions (UN GRD)"
+label variable rev_inc_sc "Govt revenue, incl. Social Contributions (% GDP) (UN GRD)"
 label variable tax_inc_sc "Taxes including social contributions (UN GRD)"
-label variable tot_res_rev "Government Total Resource Revenue (UN GRD)"
+label variable tot_res_rev "Govt Total Resource Revenue (UN GRD)"
 
 // // War
 label variable est_deaths "Estimated battle deaths in country (geographical location) from war (UCDP)"
@@ -78,10 +91,10 @@ label variable gov_exp_SOCPROT "Gov exp: social protection"
 label variable gov_exp_TOT "Gov exp: TOTAL"
 
 // IMF government expenditure variables:
-label variable fm_gov_exp "Government expenditures (% of GDP) (IMF Fiscal Monitor)"
-label variable fm_gov_rev "Government revenue (% of GDP) (IMF Fiscal Monitor)"
-label variable gfs_gov_exp "General budgetary government expense (% of GDP) (IMF GFS)"
-label variable gfs_gov_rev "General budgetary government revenue (% of GDP) (IMF GFS)"
+label variable fm_gov_exp "Govt expenditures (% of GDP) (IMF Fiscal Monitor)"
+label variable fm_gov_rev "Govt revenue (% of GDP) (IMF Fiscal Monitor)"
+label variable gfs_gov_exp "General budgetary govt expense (% of GDP) (IMF GFS)"
+label variable gfs_gov_rev "General budgetary govt revenue (% of GDP) (IMF GFS)"
 
 // Stock market and interest rate data from GFD
 label variable yield_10yr "10 year bond yields"
@@ -92,73 +105,82 @@ label variable index_inf_adj "Stock Index, inflation adjusted"
 // Checks --------------------------------------------------------------------
 
 // no duplicates
-check_dup_id "iso3c year"
+isid iso3c year
 
 // US population should be what I expect it to be
-preserve
-keep if iso3c == "USA" & year == 2019
-assert poptotal < 340*(10^6)
-assert poptotal > 320*(10^6)
+*preserve
+*keep if iso3c == "USA" & year == 2019
+assert poptotal < 340*(10^6) 	if iso3c == "USA" & year == 2019
+assert poptotal > 320*(10^6) 	if iso3c == "USA" & year == 2019
 
-// US GDP should be around what I expect it to be (if it's in billions):
-assert rgdp_pwt > 20*(10^6)
-assert rgdp_pwt < 22*(10^6)
-restore
+// US GDP should be around what I expect it to be (if it's in millions):
+assert rgdp_pwt > 20*(10^6) 	if iso3c == "USA" & year == 2019
+assert rgdp_pwt < 22*(10^6) 	if iso3c == "USA" & year == 2019
+*restore
 
 // countrycode and iso3c should be the same:
 preserve
-keep iso3c countrycode
-duplicates drop
-naomit
-check_dup_id "iso3c"
-check_dup_id "countrycode"
+	keep iso3c countrycode
+	duplicates drop
+	drop if missing(iso3c) | missing(countrycode)
+	isid iso3c
+	isid countrycode
 restore
 
 // Kosovo shouldn't be messed up
 assert iso3c != "KSV"
 
+// Drop cpi_growth outliers
+drop if cpi_growth > 100
+
+
 save "$input/final_raw_labor_growth.dta", replace
+
 
 // Derived variables -------------------------------------------------------
 
 use "$input/final_raw_labor_growth.dta", clear
 
 // Restrict population to 1 year chunks
-gen year_mod = mod(year, 1)
-keep if year_mod == 0
-drop year_mod
+keep if mod(year, 1) == 0   // Note ZG: I'm not sure in what scenario there would be years with decimals, maybe deprecated?
+
+/* Going to xtset, as manual lag/difference creation is in the next chunk
+But will commit a version before putting it in in case it breaks stuff.
+encode(iso3c), generate(country_code)
+xtset country_code year
+local t = 1
+gen test1 = L`t'.year */
 
 // making % changes in variables
 fillin iso3c year
 drop _fillin
-foreach i in rgdp_pwt popwork rev_inc_sc fm_gov_exp cpi yield_10yr yield_3mo index_inf_adj flp lp gov_deficit_pc_gdp gov_exp_TOT {
+foreach var in rgdp_pwt popwork rev_inc_sc fm_gov_exp cpi yield_10yr yield_3mo index_inf_adj flp lp gov_deficit_pc_gdp gov_exp_TOT {
 	sort iso3c year
-	loc lab: variable label `i'
+	loc lab: variable label `var'
 	foreach num of numlist 1/2 {
 		local yr = cond(`num' == 1 , 1, 2)
 		// lag variable
-			gen L`num'_`i' = `i'[_n-`num'] if iso3c == iso3c[_n-`num']
-			label variable L`num'_`i' "Lag `yr'yr `lab'"
+			gen L`num'_`var' = `var'[_n-`num'] if iso3c == iso3c[_n-`num']
+			label variable L`num'_`var' "Lag `yr'yr `lab'"
 		// percent change in variable by X-yr periods
-			gen P`num'_`i' = (`i' / L`num'_`i') - 1
-			label variable P`num'_`i' "`yr'yr % Change in `lab'"
+			gen P`num'_`var' = (`var' / L`num'_`var') - 1
+			label variable P`num'_`var' "`yr'yr % Change in `lab'"
 		// average percent change in variable by X-yr periods
-			gen aveP`num'_`i' = (`i' / L`num'_`i')^(1/`yr') - 1
-			label variable aveP`num'_`i' "Average Annual `yr'yr Change in `lab'"
+			gen aveP`num'_`var' = (`var' / L`num'_`var')^(1/`yr') - 1
+			label variable aveP`num'_`var' "Average Annual `yr'yr Change in `lab'"
 		// average DIFFERENCE in variable by X-yr periods
-			gen aveD`num'_`i' = (`i' - L`num'_`i') / `yr'
-			label variable aveD`num'_`i' "Average Annual `yr'yr Change in `lab'"
+			gen aveD`num'_`var' = (`var' - L`num'_`var') / `yr'
+			label variable aveD`num'_`var' "Average Annual `yr'yr Change in `lab'"
 	}
 }
-pause 89yuggvuihjbbju
 
 // Tag whether the average percent change in real GDP growth is negative.
-foreach i in rgdp_pwt popwork rev_inc_sc fm_gov_exp cpi yield_10yr yield_3mo index_inf_adj flp lp gov_deficit_pc_gdp gov_exp_TOT {
+foreach var in rgdp_pwt popwork rev_inc_sc fm_gov_exp cpi yield_10yr yield_3mo index_inf_adj flp lp gov_deficit_pc_gdp gov_exp_TOT {
 	sort iso3c year
-	loc lab: variable label `i'
-	gen NEG_`i' = "Negative" if aveP1_`i' < 0
-	replace NEG_`i' = "Positive" if aveP1_`i' >= 0 & aveP1_`i'!=.
-	label variable NEG_`i' "Is the average 1yr % change in `lab' negative?"
+	loc lab: variable label `var'
+	gen NEG_`var' = "Negative" if aveP1_`var' < 0
+	replace NEG_`var' = "Positive" if aveP1_`var' >= 0 & aveP1_`var'!=.
+	label variable NEG_`var' "Is the average 1yr % change in `lab' negative?"
 }
 
 // Tag whether there was a 10 year consistent negative growth.
@@ -201,30 +223,30 @@ foreach var in popwork {
 // within the past 1 years was negative. So, finally, it replaces the
 // average lag 2 year growth rate by a missing value if the average 1 year
 // growth rate is positive or absent (not negative).
-foreach i in rgdp_pwt rev_inc_sc fm_gov_exp cpi yield_10yr yield_3mo index_inf_adj flp lp gov_deficit_pc_gdp gov_exp_TOT {
+foreach var in rgdp_pwt rev_inc_sc fm_gov_exp cpi yield_10yr yield_3mo index_inf_adj flp lp gov_deficit_pc_gdp gov_exp_TOT {
 	sort iso3c year
-	loc lab: variable label `i'
+	loc lab: variable label `var'
 	foreach num of numlist 1/2 {
 		local yr = cond(`num' == 1 , 1, 2)
-		gen aveP`num'_`i'_bef = aveP`num'_`i' if aveP`num'_popwork >= 0
+		gen aveP`num'_`var'_bef = aveP`num'_`var' if aveP`num'_popwork >= 0
 		sort iso3c year
-		by iso3c: fillmissing aveP`num'_`i'_bef, with(previous)
-		gen aveP`num'_`i'_bef2 = aveP`num'_`i'_bef[_n-1] if iso3c == iso3c[_n-1]
-		drop aveP`num'_`i'_bef
-		rename aveP`num'_`i'_bef2 aveP`num'_`i'_bef
-		replace aveP`num'_`i'_bef = . if NEG_popwork != "Negative"
-		label variable aveP`num'_`i'_bef "Avg ann % gr, `lab', `yr'yr priod b/f neg labor gr"
+		by iso3c: fillmissing aveP`num'_`var'_bef, with(previous)
+		gen aveP`num'_`var'_bef2 = aveP`num'_`var'_bef[_n-1] if iso3c == iso3c[_n-1]
+		drop aveP`num'_`var'_bef
+		rename aveP`num'_`var'_bef2 aveP`num'_`var'_bef
+		replace aveP`num'_`var'_bef = . if NEG_popwork != "Negative"
+		label variable aveP`num'_`var'_bef "Avg ann % gr, `lab', `yr'yr priod b/f neg labor gr"
 	}
 	foreach num of numlist 1/2 {
 		local yr = cond(`num' == 1 , 1, 2)
-		gen aveD`num'_`i'_bef = aveD`num'_`i' if aveD`num'_popwork >= 0
+		gen aveD`num'_`var'_bef = aveD`num'_`var' if aveD`num'_popwork >= 0
 		sort iso3c year
-		by iso3c: fillmissing aveD`num'_`i'_bef, with(previous)
-		gen aveD`num'_`i'_bef2 = aveD`num'_`i'_bef[_n-1] if iso3c == iso3c[_n-1]
-		drop aveD`num'_`i'_bef
-		rename aveD`num'_`i'_bef2 aveD`num'_`i'_bef
-		replace aveD`num'_`i'_bef = . if NEG_popwork != "Negative"
-		label variable aveD`num'_`i'_bef "Avg ann gr, `lab', `yr'yr priod b/f neg labor gr"
+		by iso3c: fillmissing aveD`num'_`var'_bef, with(previous)
+		gen aveD`num'_`var'_bef2 = aveD`num'_`var'_bef[_n-1] if iso3c == iso3c[_n-1]
+		drop aveD`num'_`var'_bef
+		rename aveD`num'_`var'_bef2 aveD`num'_`var'_bef
+		replace aveD`num'_`var'_bef = . if NEG_popwork != "Negative"
+		label variable aveD`num'_`var'_bef "Avg ann gr, `lab', `yr'yr priod b/f neg labor gr"
 	}
 }
 
