@@ -376,10 +376,12 @@ for (i in c(
         scale_color_manual(values = c("#00677F", "#8B0000", "#693C5E", "#FFBF3F", "#000000"))
     
     ggsave(
-        paste0(
+        file.path(
             overleaf_dir,
-            cleanname(cleanname(make.names(i)))
-            , "_HIC_line",  ".pdf"), plot)
+            paste0(cleanname(cleanname(make.names(i))), "_HIC_line", ".pdf")
+        ),
+        plot
+    )
 }
 
 
