@@ -18,7 +18,7 @@ rm(list = ls())
 # Packages ---------------------------------------------------------------
 # "dummies" was in the list, but it now
 # gives the error: "There is no package called 'dummies'"
-list.of.packages <- c( "base", "car", "cowplot", "dplyr", "ggplot2",
+list.of.packages <- c("modelsummary", "fixest", "base", "car", "cowplot", "dplyr", "ggplot2",
     "ggthemes", "graphics", "grDevices", "grid", "gridExtra", "gvlma", "h2o",
     "lubridate", "MASS", "readxl", "rio", "rms", "rsample", "stats",
     "tidyr", "utils", "zoo", "xtable", "stargazer", "data.table",
