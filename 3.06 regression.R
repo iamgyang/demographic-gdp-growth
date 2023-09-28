@@ -16,40 +16,39 @@ bob[,aveP1_popwork:=aveP1_popwork*100] # want everything in % percents. e.g. For
 
 # for these variables, we need to make sure that they're in % growth (b/c the levels aren't really important)
 bob <- bob[order(iso3c, year)]
-bob[,rgdppc_pwt:=rgdppc_pwt/shift(rgdppc_pwt), by = "iso3c"]
-bob[,cpi:=cpi/shift(cpi), by = "iso3c"]
-bob[,index_inf_adj:=index_inf_adj/shift(index_inf_adj), by = "iso3c"]
+bob[, rgdppc_pwt_pctgrowth := 100 * ((rgdppc_pwt/shift(rgdppc_pwt)) - 1), by = "iso3c"]   
+bob[, cpi_pctgrowth := 100 * ((cpi/shift(cpi)) - 1), by = "iso3c"]
+bob[, index_inf_adj_pctgrowth := 100 * ((index_inf_adj/shift(index_inf_adj)) - 1), by = "iso3c"]
 
 # rename variables of interest:
-bob <- bob %>% 
+bob <- bob %>%
     rename(
-        "Real GDP growth" = "rgdppc_pwt",
+        "Real GDP/Capita % growth" = "rgdppc_pwt_pctgrowth",
         "Govt expenditure (% GDP)" = "fm_gov_exp",
         "Govt revenue (% GDP)" = "rev_inc_sc",
-        "Inflation" = "cpi",
+        "Inflation %" = "cpi_pctgrowth",
         "10 year yield" = "yield_10yr",
-        "Stock index return" = "index_inf_adj",
+        "Stock index % growth" = "index_inf_adj_pctgrowth",
         "Female labor force participation" = "flp",
         "Labor force participation" = "lp"
-    ) %>% 
-    as.data.table()
+    )
 
 var_interest <-
     c(
-        "Real GDP growth",
+        "Real GDP/Capita % growth",
         "Govt expenditure (% GDP)",
         "Govt revenue (% GDP)",
-        "Inflation",
+        "Inflation %",
         "10 year yield",
-        "Stock index return",
+        "Stock index % growth",
         "Female labor force participation",
         "Labor force participation"
     )
 
 for (i in var_interest) {
     reg_bob <- as.data.table(bob)
-    reg_bob <- 
-        reg_bob %>% 
+    reg_bob <-
+        reg_bob %>%
         rename("X" = all_of(i),
                "PAPG" = "aveP1_popwork",
                "PAPG<0" = "D") %>% 
@@ -57,17 +56,17 @@ for (i in var_interest) {
         as.data.table()
 
     # local linear regression allowing for different intercepts ONLY
-    reg_list[[1]][[i]] <- feols(X ~ PAPG + `PAPG<0` | 
-                               Year + Country, 
-                               data = reg_bob)
+    reg_list[[1]][[i]] <- fixest::feols(X ~ PAPG + `PAPG<0` |
+                                    Year + Country,
+                                data = reg_bob)
     
     # TWFE regression
-    reg_list[[2]][[i]] <- feols(X ~ PAPG | 
-                                    Year + Country, 
+    reg_list[[2]][[i]] <- fixest::feols(X ~ PAPG |
+                                    Year + Country,
                                 data = reg_bob)
     
     # local linear regression allowing for different intercepts & slopes
-    reg_list[[3]][[i]] <- feols(X ~ PAPG + 
+    reg_list[[3]][[i]] <- fixest::feols(X ~ PAPG + 
                                     `PAPG<0` + 
                                     `PAPG<0`:PAPG | 
                                     Year + Country, 
@@ -84,7 +83,7 @@ modelsummary::modelsummary(
     output = 'latex',
     estimate = "{estimate}{stars}",
     gof_omit = "AIC|BIC|Log|Std.Errors|R2 Pseudo",
-    title = "Local linear regression with different intercepts \\label{tab:llr1_int}",
+    title = "Local linear regression with different intercepts \\label{tab:llr1int}",
     stars = c('*' = .1, '**' = .05, '***' = .01, '****' = .001)
 ) %>%
     kableExtra::kable_styling(
@@ -114,7 +113,7 @@ modelsummary::modelsummary(
     output = 'latex',
     estimate = "{estimate}{stars}",
     gof_omit = "AIC|BIC|Log|Std.Errors|R2 Pseudo",
-    title = "Two way fixed effects regression \\label{tab:twfe_int}",
+    title = "Two way fixed effects regression \\label{tab:twfeint}",
     stars = c('*' = .1, '**' = .05, '***' = .01, '****' = .001)
 ) %>%
     kableExtra::kable_styling(
@@ -144,7 +143,7 @@ modelsummary::modelsummary(
     output = 'latex',
     estimate = "{estimate}{stars}",
     gof_omit = "AIC|BIC|Log|Std.Errors|R2 Pseudo",
-    title = "Local linear regression with different intercepts and slopes \\label{tab:llr2_int}",
+    title = "Local linear regression with different intercepts and slopes \\label{tab:llr2int}",
     stars = c('*' = .1, '**' = .05, '***' = .01, '****' = .001)
 ) %>%
     kableExtra::kable_styling(
