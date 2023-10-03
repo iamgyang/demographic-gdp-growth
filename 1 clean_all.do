@@ -64,28 +64,26 @@ save "$input/pwt_cleaned.dta", replace
 // get WDI data (GDP PPP)
 wbopendata, language(en – English) indicator(NY.GDP.MKTP.PP.KD) long clear
 keep countrycode year ny_gdp_mktp_pp_kd
-drop if ny_gdp_mktp_pp_kd ==.
+drop if missing(ny_gdp_mktp_pp_kd)
 rename (countrycode ny_gdp_mktp_pp_kd) (iso3c rgdp_wdi)
-sort iso3c year
 
 // get WDI growth rate
-bys iso3c: gen rgdp_wdi_gr = rgdp_wdi / rgdp_wdi[_n-1]
+bys iso3c (year): gen rgdp_wdi_gr = rgdp_wdi / rgdp_wdi[_n-1]
 save "$input/wdi_gdp_cleaned.dta", replace
 
 // merge with PWT
 use "$input/pwt_cleaned.dta", clear
-mmerge iso3c year using "$input/wdi_gdp_cleaned.dta"
+mmerge iso3c year using "$input/wdi_gdp_cleaned.dta", type(1:1)
+recast double rgdp_pwt
 sort iso3c year
-gen temp_check_var = 1 if missing(rgdp_pwt)
 
 // extrapolate based on WDI
-bys iso3c (year): replace rgdp_pwt = rgdp_pwt[_n - 1] * rgdp_wdi_gr 	if missing(rgdp_pwt) & iso3c == iso3c[_n - 1]
+bys iso3c (year): replace rgdp_pwt = rgdp_pwt[_n - 1] * rgdp_wdi_gr  if missing(rgdp_pwt)
 
 // checks:
 sort iso3c year
 assert rgdp_wdi/rgdp_wdi[_n-1] == rgdp_wdi_gr if iso3c == iso3c[_n-1]
-sort iso3c year
-assert abs(rgdp_wdi/rgdp_wdi[_n-1] - rgdp_pwt/rgdp_pwt[_n-1])<0.0001 if year == 2020 & temp_check_var == 1 & !mi(rgdp_pwt)
+assert abs(rgdp_wdi/rgdp_wdi[_n-1] - rgdp_pwt/rgdp_pwt[_n-1])<0.0001 if year == 2020 & !mi(rgdp_pwt)
 
 save "$input/pwt_cleaned.dta", replace
 
