@@ -18,7 +18,6 @@ do "${scripts}/0 programs and functions.do"
 do "${scripts}/1 clean_all.do"
 do "${scripts}/2.00 merge and checks.do"
 do "${scripts}/2.01 summary table.do"
-e
 do "${scripts}/3.02 analysis - HIC event.do"
 do "${scripts}/3.03 analysis - table.do"
 
