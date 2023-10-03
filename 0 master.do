@@ -20,19 +20,20 @@ foreach user in "`c(username)'" {
 
 global code        "$root/labor-growth"
 global input       "$root/input"
+
 global check       "no"
 global test_run  	0
+global DROP_CPI_OUTLIERS = 0 
 
-// CHANGE THIS!! --- Do we want to install user-defined functions?
-loc install_user_defined_functions "No"
+// CHANGE THIS!! --- Do we want to install user-defined functions? 1 if yes, 0 if no.
+loc install_user_defined_functions = 0
 
-if ("`install_user_defined_functions'" == "Yes") {
-	foreach i in rangestat wbopendata kountry mmerge outreg2 somersd ///
+if (`install_user_defined_functions' == 1) {
+	foreach i in texsave rangestat wbopendata kountry mmerge outreg2 somersd ///
 	asgen moss reghdfe ftools fillmissing gtools filelist {
 		capture quietly ssc install `i'
 	}
-}
-
+} 
 
 
 * Temporary ZG: 
