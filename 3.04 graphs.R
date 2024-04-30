@@ -3,6 +3,8 @@
 setwd(input_dir)
 df <- rio::import("un_pop_with_HIC_LIC.dta") %>% as.data.table()
 
+source(file.path(code_dir, "cgd_theme.R"))
+
 df <- df %>% 
     filter(country == "High-income countries" |
                country == "Low-income countries" | 
@@ -26,10 +28,10 @@ plot <- df %>% ggplot(.,
                color = country
            )) +
     geom_line() + 
-    my_custom_theme + 
+    my_custom_theme + # texfont +  
     scale_x_continuous(breaks = seq(1950, 2100, 25)) + 
-    labs(y = "", subtitle = "Working Age Population (15-64)") + 
-    scale_color_stata()
+    labs(y = "", subtitle = "Working Age Population (15-64)") #+ 
+    #scale_color_stata()
 
 ggsave(glue("{overleaf_dir}/Working Age Population China India Line.png"), plot, width = 9, height = 7)
 
@@ -37,27 +39,30 @@ ggsave(glue("{overleaf_dir}/Working Age Population China India Line.png"), plot,
 # Percent of world's population with absolute number of workers expected to decline --------
 
 df <- rio::import("final_derived_labor_growth.dta") %>% dfdt()
-df[,count:=ifelse(aveP1_popwork<0, 1, 0)]
-df <- df[,.(poptotal, count, iso3c, year)]
-df <- df[,.(poptotal = sum(poptotal, na.rm = T)),by = .(count, year)]
-df <- df[poptotal!=0]
-df[count==1, indic:= "Decline"]
-df[count==0, indic:= "Growth"]
-df[,globalpop:=sum(poptotal, na.rm = T),by=.(year)]
-df[,poptotl_perc:=poptotal/globalpop]
+df[, count := ifelse(aveP1_popwork < 0, 1, 0)]
+df <- df[, .(poptotal, count, iso3c, year)]
+df <- df[, .(poptotal = sum(poptotal, na.rm = TRUE)), by = .(count, year)]
+df <- df[poptotal != 0]
+df[count == 1, indic := "Decline"]
+df[count == 0, indic := "Growth"]
+df[, globalpop := sum(poptotal, na.rm = TRUE), by = .(year)]
+df[, poptotl_perc := poptotal / globalpop]
 
 plot <- df %>% 
-    filter(year!=1950) %>% 
-    ggplot(aes(
-    x = year,
-    y = round(poptotl_perc*100, 1),
-    group = indic,
-    color = indic
-)) + geom_line() +
-    my_custom_theme +
+    filter(year != 1950 & !is.na(indic)) %>% 
+    ggplot(
+        aes(
+            x = year,
+            y = round(poptotl_perc * 100, 1),
+            group = indic,
+            color = indic
+        )
+    ) + 
+    geom_line() +
+    my_custom_theme + # texfont + 
     scale_x_continuous(breaks = seq(1950, 2100, 25)) +
-    labs(y = "", subtitle = "Percent of global population living in countries where growth in working age population (15-64) is expected \nto grow or decline") +
-    scale_color_stata()
+    labs(y = "", subtitle = "Percent of global population living in countries where growth in working age population (15-64) is expected \nto grow or decline") #+
+    #scale_color_stata()
 
 ggsave(glue("{overleaf_dir}/pop_g_line.pdf"), plot, width = 9, height = 7)
 
@@ -103,12 +108,12 @@ PLOT <- ggplot(pvq) +
         fill = name,
         group = name,
     ),
-        stat = "identity")+
-    my_custom_theme +
+        stat = "identity") +
+    my_custom_theme + # texfont +  
     labs(
         subtitle = "Number of Countries",
         x = "",
-        y = ""#,
+        y = "" #,
         # title = "Count of countries with negative vs. positive prime-age population growth"
     ) + 
     scale_color_manual(values = c("firebrick4", "dodgerblue2"),
@@ -119,15 +124,12 @@ PLOT <- ggplot(pvq) +
                        labels=abs(seq(-150,200,by=50))) + 
     scale_x_continuous(breaks = seq(1950,2100,10)) 
 
-setwd(overleaf_dir)
 ggsave(
     glue("{overleaf_dir}/count_country_papg.pdf"),
     PLOT,
     width = 10,
     height = 5
 )
-setwd(input_dir)
-
 
 # GDP per capita growth ---------------------------------------------------
 
@@ -189,8 +191,8 @@ PLOT <- ggplot(pvq) +
         group = name
     ),
     # width = 2,
-    stat = "identity")+
-    my_custom_theme +
+    stat = "identity") +
+    my_custom_theme + # texfont +  
     labs(
         subtitle = "Annualized GDP per capita growth",
         x = "",
@@ -217,16 +219,14 @@ PLOT <- ggplot(pvq) +
         color = "gray57"
     )) + 
     scale_x_continuous(breaks = seq(1965, 2020, 5)) + 
-    scale_y_continuous(breaks = seq(-0.04,0.04,0.01))
+    scale_y_continuous(breaks = seq(-0.04, 0.04, 0.01))
 
-setwd(overleaf_dir)
 ggsave(
     glue("{overleaf_dir}/gdppc_country_papg.pdf"),
     PLOT,
     width = 12,
     height = 5
 )
-setwd(input_dir)
 
 # Government Revenue Growth ----------------------------------------
 
@@ -288,8 +288,8 @@ PLOT <- ggplot(pvq) +
         group = name
     ),
     # width = 2,
-    stat = "identity")+
-    my_custom_theme +
+    stat = "identity") +
+    my_custom_theme + # texfont +  
     labs(
         subtitle = "Annualized government revenue (% GDP) growth",
         x = "",
@@ -318,14 +318,12 @@ PLOT <- ggplot(pvq) +
     scale_x_continuous(breaks = seq(1965, 2020, 5)) + 
     scale_y_continuous(breaks = seq(-0.04,0.04,0.01))
 
-setwd(overleaf_dir)
 ggsave(
     glue("{overleaf_dir}/govrev_country_papg.pdf"),
     PLOT,
     width = 12,
     height = 5
 )
-setwd(input_dir)
 
 
 #  one concern about the use of fertility as an IV for number of workers 20-65
@@ -364,7 +362,7 @@ for (i in c(
             )
         ) +
         geom_line() +
-        my_custom_theme +
+        my_custom_theme + # texfont + 
         scale_x_continuous(limits = c(1985, 2020)) +
         labs(
             x = "",
@@ -393,23 +391,23 @@ j[,country:=code2name(iso3c)]
 
 # variable labels
 a <- fread("
-name	varlab
-rgdp_pwt	GDP
-rgdppc_pwt	GDP per capita
-fm_gov_exp	Government expenditures
-rev_inc_sc	Government revenue
-cpi	CPI
-yield_10yr	10 year yields
-index_inf_adj	Stock Index
-flp	Female Labor Force Participation
-lp	Labor Force Participation
+name,varlab
+rgdp_pwt,GDP
+rgdppc_pwt,GDP per capita
+fm_gov_exp,Government expenditures
+rev_inc_sc,Government revenue
+cpi,CPI
+yield_10yr,10 year yields
+index_inf_adj,Stock Index
+flp,Female Labor Force Participation
+lp,Labor Force Participation
 ")
 
 # gather our variables
 j <- j %>% rename(x = var) %>% dfdt()
 
 # get variable labels
-j <- merge(j, a, by.x = "x", by.y = "name", all = T) %>% dfdt()
+j <- merge(j, a, by.x = "x", by.y = "name", all = TRUE) %>% dfdt()
 
 # all rows should have a variable label
 waitifnot(sum(is.na(j$varlab))==0)
@@ -437,7 +435,7 @@ plot <- ggplot(data = j) +
                aes(x = year,
                    y = value_mean),
                color = "red") +
-    my_custom_theme +
+    my_custom_theme + # texfont + 
     scale_x_continuous(breaks = seq(-10, 10, 2),
                        limits = c(-10, 10)) +
     labs(x = "", y = "") +
@@ -457,6 +455,4 @@ plot <- ggplot(data = j) +
                 linetype="dashed")+
     facet_wrap( ~ varlab, scales = "free")
 
-# setwd(output_dir)
 ggsave(glue("{overleaf_dir}/HIC_UMIC_10yr_event.pdf"), plot, width = 10, height = 10)
-# setwd(input_dir)
