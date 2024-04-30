@@ -227,6 +227,13 @@ con <- function(string_) {cat(strwrap(string_, 60),sep="\n")}
 name.df <- function(df){names(df) <- tolower(make.names(names(df))) %>% 
     gsub("..",".",.,fixed=TRUE) %>% gsub("[.]$","",.); df}
 
+cleanname <- function (name) {
+    name <- tolower(make.names(names(name))) %>%
+        gsub("..", ".", ., fixed = TRUE) %>%
+        gsub("[.]$", "", .)
+    name
+}
+
 # country code interactive
 code2name <- function(x,...) {countrycode(x,"iso3c","country.name",...)}
 name2code <- function(x,...) {countrycode(x,"country.name","iso3c",...)}
