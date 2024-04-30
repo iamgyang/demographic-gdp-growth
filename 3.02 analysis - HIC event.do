@@ -202,7 +202,7 @@ replace year = year - year_st - 10
 // index by the year where population is first negative:
 gen value1 = value if year == 1
 bys var iso3c: fillmissing value1
-replace value = value/value1*100
+replace value = (value/value1)*100
 assert value == 100 | mi(value) if year == 1
 
 // get a mean across countries for each year:
