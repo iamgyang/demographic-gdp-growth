@@ -130,9 +130,13 @@ restore
 // Kosovo shouldn't be messed up
 assert iso3c != "KSV"
 
-// Drop cpi_growth outliers
-drop if cpi_growth > 100
+// Drop cpi_growth outliers, if desired
+if ($DROP_CPI_OUTLIERS == 1) {
+	drop if (cpi_growth > 100) & !missing(cpi_growth)
+}
 
+// We only have population data after 1950, so ignore before.
+keep if year >= 1950
 
 save "$input/final_raw_labor_growth.dta", replace
 
@@ -154,11 +158,11 @@ gen test1 = L`t'.year */
 // making % changes in variables
 fillin iso3c year
 drop _fillin
-foreach var in rgdp_pwt popwork rev_inc_sc fm_gov_exp cpi yield_10yr yield_3mo index_inf_adj flp lp gov_deficit_pc_gdp gov_exp_TOT {
+foreach var in rgdp_pwt rgdppc_pwt popwork rev_inc_sc fm_gov_exp cpi yield_10yr yield_3mo index_inf_adj flp lp gov_deficit_pc_gdp gov_exp_TOT {
 	sort iso3c year
 	loc lab: variable label `var'
 	foreach num of numlist 1/2 {
-		local yr = cond(`num' == 1 , 1, 2)
+		local yr = cond(`num' == 1 , 1, 2)   // This is identical to yr = `num'--maybe before it wasn't?
 		// lag variable
 			gen L`num'_`var' = `var'[_n-`num'] if iso3c == iso3c[_n-`num']
 			label variable L`num'_`var' "Lag `yr'yr `lab'"
@@ -167,7 +171,7 @@ foreach var in rgdp_pwt popwork rev_inc_sc fm_gov_exp cpi yield_10yr yield_3mo i
 			label variable P`num'_`var' "`yr'yr % Change in `lab'"
 		// average percent change in variable by X-yr periods
 			gen aveP`num'_`var' = (`var' / L`num'_`var')^(1/`yr') - 1
-			label variable aveP`num'_`var' "Average Annual `yr'yr Change in `lab'"
+			label variable aveP`num'_`var' "Average Annual `yr'yr Change in `lab' (geometric mean)"
 		// average DIFFERENCE in variable by X-yr periods
 			gen aveD`num'_`var' = (`var' - L`num'_`var') / `yr'
 			label variable aveD`num'_`var' "Average Annual `yr'yr Change in `lab'"
@@ -223,7 +227,7 @@ foreach var in popwork {
 // within the past 1 years was negative. So, finally, it replaces the
 // average lag 2 year growth rate by a missing value if the average 1 year
 // growth rate is positive or absent (not negative).
-foreach var in rgdp_pwt rev_inc_sc fm_gov_exp cpi yield_10yr yield_3mo index_inf_adj flp lp gov_deficit_pc_gdp gov_exp_TOT {
+foreach var in rgdp_pwt rgdppc_pwt rev_inc_sc fm_gov_exp cpi yield_10yr yield_3mo index_inf_adj flp lp gov_deficit_pc_gdp gov_exp_TOT {
 	sort iso3c year
 	loc lab: variable label `var'
 	foreach num of numlist 1/2 {
@@ -237,6 +241,7 @@ foreach var in rgdp_pwt rev_inc_sc fm_gov_exp cpi yield_10yr yield_3mo index_inf
 		replace aveP`num'_`var'_bef = . if NEG_popwork != "Negative"
 		label variable aveP`num'_`var'_bef "Avg ann % gr, `lab', `yr'yr priod b/f neg labor gr"
 	}
+	// do the same for the differences:
 	foreach num of numlist 1/2 {
 		local yr = cond(`num' == 1 , 1, 2)
 		gen aveD`num'_`var'_bef = aveD`num'_`var' if aveD`num'_popwork >= 0
@@ -250,16 +255,13 @@ foreach var in rgdp_pwt rev_inc_sc fm_gov_exp cpi yield_10yr yield_3mo index_inf
 	}
 }
 
-// do the same for the differences:
 
 
 // What were economic growth rates during those 1 year periods compared to 
 // the global (and country income group) average growth?
-bysort income year: egen income_aveP1_rgdp_pwt=mean(aveP1_rgdp_pwt)
-bysort        year: egen global_aveP1_rgdp_pwt=mean(aveP1_rgdp_pwt)
+bysort income year: egen income_aveP1_rgdp_pwt = mean(aveP1_rgdp_pwt)
+bysort        year: egen global_aveP1_rgdp_pwt = mean(aveP1_rgdp_pwt)
 
-// We only have population data after 1950, so ignore before.
-keep if year >= 1950
 save "$input/final_derived_labor_growth.dta", replace
 
 // To do ----------------------------------------------------------------
