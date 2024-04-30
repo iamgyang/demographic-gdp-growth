@@ -60,30 +60,36 @@ di "`r(varlist)'"
 
 sum `varlist'
 
+
+// We only have population data after 1950, so ignore before.
+keep if year >= 1950
+
 // create my table
 foreach var in `varlist' {
 	use "$input/temp_final_raw_labor_growth.dta", clear
 	di "`var'"
-
+	
     keep iso3c year `var'
     naomit
-    
-    g variable = "`var'"
+	
+	if "`var'" == "cpi_growth" 	drop if ((cpi_growth > 100.0) & !missing(cpi_growth))
+	
+    gen variable = "`var'"
 
     // variable label:
     loc lab: variable label `var'
-    g variable_label = "`lab'"
+    gen variable_label = "`lab'"
 
     // other metrics:
     gegen year_start = min(year)
     gegen year_end = max(year)
-    g number_of_observations = _N
+    gen number_of_observations = _N
 	gegen mean = mean(`var')
 	gegen sd = sd(`var')
 	
     drop `var' year
     gduplicates drop
-    g number_of_countries = _N
+    gen number_of_countries = _N
     
     // keep only this one row where we have the summary stats
     keep variable variable_label year_start year_end number_of_countries ///
